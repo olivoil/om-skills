@@ -42,11 +42,16 @@ Look for:
 
 **ALWAYS run this phase** to fetch GitHub activity and enhance time entry descriptions.
 
-#### Step 1: Ensure Script Exists
+#### Step 1: Ensure Script Is Up-to-Date
 
-Check if `.claude/intervals-cache/fetch-github-activity.sh` exists. If not:
-1. Read `~/.claude/skills/intervals-time-entry/scripts/fetch-github-activity.sh`
-2. Write the contents to `.claude/intervals-cache/fetch-github-activity.sh`
+The script has a version number on line 2 (e.g., `# Version: 2`). Check and update if needed:
+
+1. Read the plugin script: `~/.claude/skills/intervals-time-entry/scripts/fetch-github-activity.sh`
+2. Extract the version number from line 2
+3. If `.claude/intervals-cache/fetch-github-activity.sh` exists, extract its version number
+4. If the cached script doesn't exist OR the plugin version is higher, copy the plugin script to `.claude/intervals-cache/fetch-github-activity.sh`
+
+This ensures users always have the latest script with bug fixes and new features.
 
 #### Step 2: Fetch Activity
 
@@ -83,6 +88,7 @@ Using the JSON output from Step 2:
 
 **Rules:**
 - Use the PR title as the primary description when available (it's usually well-written)
+- Use the PR description/body for additional context when the title alone is too brief or generic
 - Add PR number in parentheses at the end: `(PR #123)`
 - For reviews, briefly describe each PR reviewed (2-5 words each)
 - For commits without PRs, summarize the commit messages
@@ -251,8 +257,8 @@ On first use in a new project, Claude will:
 2. If not, create it from the plugin's `references/project-mappings.md` template
 3. Check if `.claude/intervals-cache/github-mappings.md` exists
 4. If not, create it from the plugin's `references/github-mappings.md` template
-5. Check if `.claude/intervals-cache/fetch-github-activity.sh` exists
-6. If not, copy it from the plugin's `scripts/fetch-github-activity.sh`
+5. Check if `.claude/intervals-cache/fetch-github-activity.sh` exists and compare version
+6. If missing or outdated, copy from the plugin's `scripts/fetch-github-activity.sh`
 7. Use and update these local caches going forward
 
 ## Efficiency

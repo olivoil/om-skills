@@ -1,10 +1,11 @@
 #!/bin/bash
+# Version: 2
 # Fetch GitHub activity for a specific date
 # Usage: ./fetch-github-activity.sh YYYY-MM-DD [username]
 #
 # Outputs JSON with:
-# - PRs authored (created or updated on the date)
-# - PRs reviewed on the date
+# - PRs authored (created or updated on the date) with title and description
+# - PRs reviewed on the date with title and description
 # - Events with timestamps (push, review, comment activity)
 #
 # Requires: gh CLI authenticated
@@ -40,9 +41,9 @@ OUTPUT=$(cat <<EOF
 {
   "date": "$DATE",
   "username": "$USERNAME",
-  "prs_authored": $(gh search prs --author "$SEARCH_AUTHOR" --created "$DATE" --json number,title,repository,state,url,createdAt --limit 50 2>/dev/null | jq '[.[] | {number, title, repo: .repository.nameWithOwner, state, url, createdAt}]' || echo '[]'),
-  "prs_active": $(gh search prs --author "$SEARCH_AUTHOR" --updated "$DATE..$NEXT_DATE" --json number,title,repository,state,url,updatedAt --limit 50 2>/dev/null | jq --arg date "$DATE" '[.[] | select(.updatedAt[:10] == $date) | {number, title, repo: .repository.nameWithOwner, state, url, updatedAt}]' || echo '[]'),
-  "prs_reviewed": $(gh search prs --reviewed-by "$SEARCH_AUTHOR" --updated "$DATE..$NEXT_DATE" --json number,title,repository,state,url,author --limit 50 2>/dev/null | jq --arg me "$USERNAME" '[.[] | select(.author.login != $me) | {number, title, repo: .repository.nameWithOwner, state, url, author: .author.login}]' || echo '[]'),
+  "prs_authored": $(gh search prs --author "$SEARCH_AUTHOR" --created "$DATE" --json number,title,body,repository,state,url,createdAt --limit 50 2>/dev/null | jq '[.[] | {number, title, body: (.body | if . then (. | split("\n") | map(select(. != "")) | .[0:3] | join(" ") | .[0:300]) else null end), repo: .repository.nameWithOwner, state, url, createdAt}]' || echo '[]'),
+  "prs_active": $(gh search prs --author "$SEARCH_AUTHOR" --updated "$DATE..$NEXT_DATE" --json number,title,body,repository,state,url,updatedAt --limit 50 2>/dev/null | jq --arg date "$DATE" '[.[] | select(.updatedAt[:10] == $date) | {number, title, body: (.body | if . then (. | split("\n") | map(select(. != "")) | .[0:3] | join(" ") | .[0:300]) else null end), repo: .repository.nameWithOwner, state, url, updatedAt}]' || echo '[]'),
+  "prs_reviewed": $(gh search prs --reviewed-by "$SEARCH_AUTHOR" --updated "$DATE..$NEXT_DATE" --json number,title,body,repository,state,url,author --limit 50 2>/dev/null | jq --arg me "$USERNAME" '[.[] | select(.author.login != $me) | {number, title, body: (.body | if . then (. | split("\n") | map(select(. != "")) | .[0:3] | join(" ") | .[0:300]) else null end), repo: .repository.nameWithOwner, state, url, author: .author.login}]' || echo '[]'),
   "events": $(gh api "/users/$USERNAME/events" --paginate 2>/dev/null | jq --arg date "$DATE" '
     [.[] | select(.created_at[:10] == $date)] |
     map({
