@@ -1,5 +1,5 @@
 {
-  "name": "intervals-time-entry",
+  "name": "tt",
   "owner": {
     "name": "olivoil",
     "email": "olivoil@users.noreply.github.com"
@@ -10,7 +10,7 @@
   },
   "plugins": [
     {
-      "name": "intervals-time-entry",
+      "name": "tt",
       "source": {
         "source": "github",
         "repo": "olivoil/intervals-time-entry"

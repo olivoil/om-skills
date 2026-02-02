@@ -1,5 +1,5 @@
 {
-  "name": "intervals-time-entry",
+  "name": "tt",
   "version": "1.1.0",
   "description": "Time entry automation: fill Intervals from daily notes, sync Intervals to FreshBooks",
   "author": "olivoil",
