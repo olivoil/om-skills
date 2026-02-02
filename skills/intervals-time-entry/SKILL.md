@@ -1,7 +1,7 @@
 ---
 name: intervals-time-entry
 description: Fill Intervals Online time entries from daily notes. Use when asked to fill time entries, timesheets, or submit hours to Intervals. Requires chrome-devtools MCP with browser open to Intervals.
-allowed-tools: mcp__chrome-devtools__*, Bash(op read*), Bash(gh *), Read, Write, Edit
+allowed-tools: mcp__chrome-devtools__*, Bash(op read*), Bash(gh *), Bash(bash .claude/intervals-cache/*.sh *), Read, Write, Edit
 ---
 
 # Intervals Time Entry Automation
@@ -16,13 +16,16 @@ Fill time entries in Intervals Online from Obsidian daily notes using MCP chrome
 
 ## Cache Location
 
-**IMPORTANT**: Cached mappings are stored in the PROJECT, not the plugin:
+**IMPORTANT**: Cached files are stored in the PROJECT, not the plugin:
 
 ```
-<project-root>/.claude/intervals-cache/project-mappings.md
+<project-root>/.claude/intervals-cache/
+├── project-mappings.md      # Project→workType mappings
+├── github-mappings.md       # Repo→project mappings
+└── fetch-github-activity.sh # GitHub activity fetcher script
 ```
 
-This file persists your discovered project→workType mappings. If it doesn't exist, create it from the plugin's `references/project-mappings.md` template.
+These files persist between sessions. If they don't exist, create them from the plugin's `references/` and `scripts/` directories.
 
 ## Workflow
 
@@ -35,31 +38,58 @@ Look for:
 - Links to GitHub PRs or repos (e.g., `https://github.com/owner/repo/pull/123`)
 - Mentions of PR numbers (e.g., "PR #123", "reviewed PR 456")
 
-### Phase 1.5: GitHub Activity Correlation
+### Phase 1.5: GitHub Activity Correlation (REQUIRED)
 
-Fetch GitHub activity for the date to correlate with notes and enhance entries.
+**ALWAYS run this phase** to fetch GitHub activity and enhance time entry descriptions.
 
-#### Fetch Activity
+#### Step 1: Ensure Script Exists
 
-Run `scripts/fetch-github-activity.sh YYYY-MM-DD` to get:
+Check if `.claude/intervals-cache/fetch-github-activity.sh` exists. If not:
+1. Read `~/.claude/skills/intervals-time-entry/scripts/fetch-github-activity.sh`
+2. Write the contents to `.claude/intervals-cache/fetch-github-activity.sh`
+
+#### Step 2: Fetch Activity
+
+**Run this command** (replace YYYY-MM-DD with the target date):
+```bash
+bash .claude/intervals-cache/fetch-github-activity.sh YYYY-MM-DD
+```
+
+This returns JSON with:
 - PRs authored (created or updated)
 - PRs reviewed
 - Events with timestamps (commits, reviews, comments)
 
-#### Correlate with Notes
+#### Step 3: Correlate with Notes
 
+Using the JSON output from Step 2:
 1. **Match PRs to time entries**: If notes mention a PR or repo, link it to that entry
-2. **Infer repo→project mappings**: When a PR clearly matches a time entry's project, add to `references/github-mappings.md`
+2. **Infer repo→project mappings**: When a PR clearly matches a time entry's project, add to `.claude/intervals-cache/github-mappings.md`
 3. **Extract PR links from notes**: Look for GitHub URLs and extract repo/PR info
 
-#### Enhance Descriptions
+#### Step 4: Enhance Descriptions
 
-Use PR context to improve time entry descriptions:
-- Replace generic "dev work" with specific PR titles
-- For reviews, list the PRs reviewed with brief context
-- Keep descriptions concise: "PR #123: Add user auth" not the full PR description
+**ALWAYS improve descriptions** when GitHub data provides more context. The goal is to make time entries self-documenting and meaningful for future reference.
 
-#### Suggest Adjustments
+**Before/After Examples:**
+
+| Notes say | GitHub shows | Final description |
+|-----------|--------------|-------------------|
+| "font awesome icon PR" | PR #574: "Add FontAwesome Pro icons to design system" | Add FontAwesome Pro icons to design system (PR #574) |
+| "review and merge PRs" | Reviewed PR #580, #581, #583 | Code review: notification preferences (#580), cart validation (#581), search filters (#583) |
+| "text-transform work" | PR #579: "Add text-transform utilities to typography tokens" | Add text-transform utilities to typography design tokens (PR #579) |
+| "bug fixes" | PR #602: "Fix race condition in checkout flow" | Fix race condition in checkout flow (PR #602) |
+| "API work" | Commits: "Add pagination to /users endpoint", "Handle empty results" | Add pagination to /users endpoint with empty result handling |
+
+**Rules:**
+- Use the PR title as the primary description when available (it's usually well-written)
+- Add PR number in parentheses at the end: `(PR #123)`
+- For reviews, briefly describe each PR reviewed (2-5 words each)
+- For commits without PRs, summarize the commit messages
+- Keep to 1-2 sentences max, but make them specific and meaningful
+- Never use generic descriptions like "development work" when GitHub has specifics
+
+#### Step 5: Suggest Adjustments
 
 Compare GitHub activity to notes and flag potential issues:
 
@@ -99,6 +129,18 @@ Check the project cache for work types:
 - If any project is NOT cached → inspect browser to discover its work types
 
 ### Phase 4: Browser Automation
+
+#### Step 1: Find or Create Intervals Tab
+
+**IMPORTANT**: Never navigate away from the user's current tab. Always find an existing Intervals tab or create a new one.
+
+1. Call `list_pages` to see all open browser tabs
+2. Look for a tab with URL containing `intervalsonline.com`
+3. If found: call `select_page` with that page's ID
+4. If NOT found: call `new_page` with URL `https://bhi.intervalsonline.com/time/multiple/`
+5. Only call `navigate_page` if the selected tab is on Intervals but wrong URL (e.g., different week)
+
+#### Step 2: Run Scripts
 
 Use MCP chrome-devtools with these scripts from `scripts/`:
 
@@ -209,7 +251,9 @@ On first use in a new project, Claude will:
 2. If not, create it from the plugin's `references/project-mappings.md` template
 3. Check if `.claude/intervals-cache/github-mappings.md` exists
 4. If not, create it from the plugin's `references/github-mappings.md` template
-5. Use and update these local caches going forward
+5. Check if `.claude/intervals-cache/fetch-github-activity.sh` exists
+6. If not, copy it from the plugin's `scripts/fetch-github-activity.sh`
+7. Use and update these local caches going forward
 
 ## Efficiency
 
