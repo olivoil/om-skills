@@ -11,8 +11,8 @@ Map Intervals client/project combinations to FreshBooks client/service.
 | EX Squared Services | Biz Dev / Sales | EXSquared | Business Development |
 | EX Squared Services | Training | EXSquared | Training |
 | EX Squared Services | Recruiting | EXSquared | Recruiting |
-| Neuron | EWG Feature Enhancement Addendum | Neu | Development |
-| Neuron | EWG App v3 Maintenance | Neu | Development |
+| EWG - Neuron | EWG Feature Enhancement Addendum | EWG | Development |
+| EWG - Neuron | EWG App v3 Maintenance | EWG | Development |
 | Drees | Drees Maintenance and Support | Drees Homes | Development |
 | Drees | DHDC Pre Buyer Portal Integration | Drees Homes | Development |
 | K Hovnanian | Optimizely CMS Health Check | K Hovnanian | Development |

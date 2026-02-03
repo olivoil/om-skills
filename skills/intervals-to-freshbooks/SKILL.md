@@ -1,198 +1,214 @@
 ---
 name: intervals-to-freshbooks
-description: Copy a week's worth of time entries from Intervals to FreshBooks using dual browser automation. Use when asked to sync time entries between Intervals and FreshBooks.
-allowed-tools: mcp__chrome-devtools__*, Read, Write, Edit
+description: Copy a week's worth of time entries from Intervals to FreshBooks. Use when asked to sync time entries between Intervals and FreshBooks.
+allowed-tools: mcp__chrome-devtools__*, Read, Write, Edit, Bash
 ---
 
 # Intervals → FreshBooks Time Entry Sync
 
-Copy weekly time entries from Intervals to FreshBooks using MCP chrome-devtools with dual browser automation.
+Copy weekly time entries from Intervals to FreshBooks.
+
+**Reading from Intervals**: Browser automation via MCP chrome-devtools
+**Writing to FreshBooks**: API via `scripts/freshbooks-api.sh`
 
 ## Prerequisites
 
 1. Chrome/Chromium running with `--remote-debugging-port=9222`
 2. Intervals weekly timesheet open: `https://bhi.intervalsonline.com/time/`
-3. FreshBooks week view open: `https://my.freshbooks.com/#/time-tracking/week?week=YYYY-MM-DD`
-4. Both pages showing the SAME week
-5. chrome-devtools MCP server configured
-
-## Cache Location
-
-**IMPORTANT**: Cached mappings are stored in the PROJECT:
-
-```
-<project-root>/.claude/intervals-cache/
-└── freshbooks-mappings.md    # Intervals→FreshBooks project mappings
-```
-
-If the cache doesn't exist, create it from `references/project-mappings.md`.
+3. chrome-devtools MCP server configured
+4. FreshBooks API credentials configured in `~/.config/freshbooks/credentials.json`
 
 ## Workflow
 
 ### Phase 1: Verify Prerequisites
 
-1. Call `list_pages` to see all open browser tabs
+1. Call `list_pages` to find Intervals browser tab
 2. Find Intervals tab (URL contains `intervalsonline.com/time/`)
-3. Find FreshBooks tab (URL contains `freshbooks.com` and `time-tracking/week`)
-4. If either is missing, inform user and stop
-5. Verify both are showing the same week
+3. If missing, inform user and stop
 
 ### Phase 2: Read from Intervals
 
 1. Select the Intervals tab using `select_page`
 2. Run `scripts/read-intervals.js` using `evaluate_script`
-3. Display aggregated entries to user:
-   - Project + Work Type combination
-   - Hours per day (Mon-Sun)
-   - Total hours per entry
+3. Display the entries to user for review
 
-**Example output:**
-```
-Intervals Weekly Timesheet (Jan 6-12, 2026)
+**The script reads from the summary table** which has this structure:
+- `td.col-timesheet-clientproject` contains "Client\nProject"
+- Following cells contain: Billable, Mon, Tue, Wed, Thu, Fri, Sat, Sun, Total
 
-| Project | Work Type | Mon | Tue | Wed | Thu | Fri | Total |
-|---------|-----------|-----|-----|-----|-----|-----|-------|
-| Ignite Application Development & Support | Development - US | 4 | 6 | 5 | 4 | 3 | 22 |
-| EWG Feature Enhancement Addendum | Development - US | 2 | 0 | 3 | 2 | 0 | 7 |
-| Meeting | Team/Company Meeting | 1 | 0.5 | 0 | 1 | 0 | 2.5 |
-```
-
-### Phase 3: Map Projects
-
-1. Load mappings from `.claude/intervals-cache/freshbooks-mappings.md`
-2. Transform each Intervals entry to FreshBooks client/service
-3. For unmapped projects:
-   - Ask user for the FreshBooks Client and Service names
-   - Update the cache file with new mapping
-4. Show mapped entries for user review
-
-**Example mapping:**
-```
-Intervals: Ignite Application Development & Support / Development - US
-  → FreshBooks: Technomic / Development
-
-Intervals: Meeting / Team/Company Meeting
-  → FreshBooks: EXSquared / Meetings
+**Output format:**
+```javascript
+{
+  success: true,
+  week: "January 05, 2026",
+  entries: [
+    { client: "Technomic", project: "Ignite App...", billable: true,
+      hours: { mon: 7.5, tue: 4.5, wed: 4.5, thu: 0, fri: 4.5, sat: 0, sun: 0 },
+      totalHours: 21 }
+  ],
+  grandTotal: 47.75
+}
 ```
 
-### Phase 4: Fill FreshBooks
+### Phase 3: Map Entries
 
-1. Select the FreshBooks tab using `select_page`
-2. Take a snapshot to understand current state
-3. For each mapped entry:
-   - Run `scripts/fill-freshbooks.js` with entry data
-   - The script will:
-     - Click "New Row" button
-     - Select Client from combobox
-     - Select Service from combobox
-     - Save the row
-     - Fill hours for each day
-4. Take screenshot showing all rows filled
+For each Intervals entry, determine the FreshBooks destination:
+- **Client** is always required for invoicing (defaults to "EXSquared")
+- **Project** is optional - use when work is for a specific project
+- If unmapped, ask user for the FreshBooks mapping
+- Update `references/project-mappings.md` with new mappings
 
-**Day Mapping:**
-- Intervals uses Mon-Sun (Mon=0, Sun=6)
-- FreshBooks uses Sun-Sat (Sun=0, Sat=6)
-- Script handles this conversion automatically
+**Mapping examples:**
+| Intervals Client | Intervals Project | FB Client | FB Project |
+|-----------------|-------------------|-----------|------------|
+| Technomic | Ignite App... | EXSquared | Technomic |
+| EWG - Neuron | Feature Enhancement | EXSquared | EWG |
+| EX Squared Services | Meeting | EXSquared | (none) |
+| EX Squared Services | Biz Dev / Sales | EXSquared | (none) |
 
-### Phase 5: Review and Save
+### Phase 4: Create FreshBooks Time Entries via API
 
-1. Take final screenshot of FreshBooks timesheet
-2. Display summary:
-   - Total entries created
-   - Total hours per day
-   - Grand total hours
-3. Inform user: "Review the entries and click Save to commit"
-4. Wait for user confirmation
+Use `scripts/freshbooks-api.sh` to create time entries:
+
+```bash
+# List available projects and clients
+./scripts/freshbooks-api.sh projects
+./scripts/freshbooks-api.sh clients
+
+# Create a time entry
+./scripts/freshbooks-api.sh create-time-entry \
+  --project "<name>" | --client "<name>" \
+  --date <YYYY-MM-DD> \
+  --hours <hours> \
+  [--note "<note>"]
+```
+
+For each Intervals entry with hours on a given day:
+1. Check mapping type (project or client)
+2. Call `create-time-entry` for each day with hours > 0
+3. Include a note (e.g., the Intervals project name or work type)
+
+**Examples:**
+```bash
+# With project (client defaults to EXSquared)
+./scripts/freshbooks-api.sh create-time-entry \
+  --project "Technomic" \
+  --date "2026-01-06" \
+  --hours 7.5 \
+  --note "Development"
+
+# Client only - no project (e.g., internal meetings)
+./scripts/freshbooks-api.sh create-time-entry \
+  --date "2026-01-06" \
+  --hours 1.0 \
+  --note "Meeting"
+
+# Different client (rare)
+./scripts/freshbooks-api.sh create-time-entry \
+  --client "Rocksauce Studios" \
+  --date "2026-01-06" \
+  --hours 1.0
+```
+
+### Phase 5: Verify
+
+1. List created entries:
+   ```bash
+   ./scripts/freshbooks-api.sh list-time-entries --from "2026-01-05" --to "2026-01-11"
+   ```
+2. Display summary of entries created
+3. Open or refresh FreshBooks in the browser for visual review:
+   - Use `list_pages` to find FreshBooks tab
+   - If found: `select_page` then `navigate_page` with `type: "reload"`
+   - If not found: `new_page` with FreshBooks week URL
+
+   ```
+   URL format: https://my.freshbooks.com/#/time-tracking/week?week=YYYY-MM-DD
+   (where YYYY-MM-DD is the Monday of the week)
+   ```
 
 ## Scripts
 
 ### `read-intervals.js`
 
-Extracts entries from Intervals weekly timesheet and aggregates by project+worktype.
+Reads the Intervals weekly summary table. No configuration needed.
+Run via `evaluate_script` - returns structured entry data.
 
-**Returns:**
-```javascript
+### `freshbooks-api.sh`
+
+Shell script for FreshBooks API operations. Supports 1Password `op://` references in credentials.
+
+**Commands:**
+- `projects` - List all FreshBooks projects
+- `clients` - List all FreshBooks clients
+- `project-id <name>` - Get project ID by name
+- `client-id <name>` - Get client ID by name
+- `create-time-entry` - Create a time entry
+  - `--client, -c <name>` - FreshBooks client (default: EXSquared)
+  - `--project, -p <name>` - FreshBooks project (optional)
+  - `--date, -d <YYYY-MM-DD>` - Date of the entry (required)
+  - `--hours, -h <hours>` - Hours worked (required)
+  - `--note, -n <note>` - Description (optional)
+- `list-time-entries` - List time entries
+  - `--from, -f <YYYY-MM-DD>` - Start date
+  - `--to, -t <YYYY-MM-DD>` - End date
+
+**Credentials:** `~/.config/freshbooks/credentials.json`
+```json
 {
-  weekStart: "2026-01-06",    // Monday of the week
-  weekEnd: "2026-01-12",      // Sunday of the week
-  entries: [
-    {
-      client: "Technomic",
-      project: "Ignite Application Development & Support",
-      workType: "Development - US",
-      hours: { mon: 4, tue: 6, wed: 5, thu: 4, fri: 3, sat: 0, sun: 0 },
-      totalHours: 22,
-      billable: true
-    }
-  ]
+  "client_id": "op://Private/Freshbooks API/username",
+  "client_secret": "op://Private/Freshbooks API/credential",
+  "redirect_uri": "https://localhost/callback"
 }
 ```
 
-### `fill-freshbooks.js`
-
-Fills one row in FreshBooks week view.
-
-**Input (embedded in script):**
-```javascript
-const ENTRY = {
-  client: "Technomic",        // FreshBooks client name
-  service: "Development",     // FreshBooks service name
-  hours: { sun: 0, mon: 4, tue: 6, wed: 5, thu: 4, fri: 3, sat: 0 }
-};
+**First-time setup:**
+```bash
+./scripts/freshbooks-oauth.sh authorize   # Get auth URL
+./scripts/freshbooks-oauth.sh exchange <code>  # Exchange code for tokens
+./scripts/freshbooks-oauth.sh me          # Test connection
 ```
 
-**Process:**
-1. Click "New Row" button
-2. Search and select Client
-3. Search and select Service
-4. Click Save/confirm for the row
-5. Fill hours in each day cell
-6. Return success/error status
+## Key Technical Details
 
-## Quick Reference
+### Intervals Summary Table
+- Rows: `tr` containing `td.col-timesheet-clientproject`
+- Client/Project cell: text split by `\n` (Client first, Project second)
+- Hour cells follow: index 2-8 for Mon-Sun, index 9 for Total
 
-### Day Index Mapping
+### FreshBooks API
 
-| Day | Intervals Index | FreshBooks Index |
-|-----|-----------------|------------------|
-| Sunday | 6 | 0 |
-| Monday | 0 | 1 |
-| Tuesday | 1 | 2 |
-| Wednesday | 2 | 3 |
-| Thursday | 3 | 4 |
-| Friday | 4 | 5 |
-| Saturday | 5 | 6 |
+**Time Entry endpoint:** `POST /timetracking/business/{business_id}/time_entries`
 
-### Common Issues
-
-1. **Client not found**: FreshBooks client names may differ from Intervals. Check exact spelling.
-2. **Service not found**: Each client has specific services enabled. Use generic services if specific not available.
-3. **Hours already exist**: FreshBooks may show existing entries. Clear them first or adjust totals.
-
-## Customization
-
-### Project Mappings
-
-Edit `.claude/intervals-cache/freshbooks-mappings.md` to customize:
-
-```markdown
-| Intervals Client | Intervals Project | FreshBooks Client | FreshBooks Service |
-|-----------------|-------------------|-------------------|-------------------|
-| Technomic | Ignite Application Development & Support | Technomic | Development |
-| EX Squared Services | Meeting | EXSquared | Meetings |
+**Payload:**
+```json
+{
+  "time_entry": {
+    "is_logged": true,
+    "duration": 27000,
+    "note": "Development",
+    "started_at": "2026-01-06T09:00:00.000Z",
+    "project_id": 12447219,
+    "identity_id": 123456
+  }
+}
 ```
 
-### Adding New Mappings
+- `duration` is in seconds (7.5 hours = 27000 seconds)
+- `started_at` is the date of the entry
+- `project_id` is looked up by project name
+- `identity_id` is the user's FreshBooks identity
 
-When a new project appears:
-1. Claude will ask for FreshBooks client and service names
-2. The mapping is automatically added to the cache
-3. Future syncs use the cached mapping
+### Hour Format
+- Intervals: decimal hours (e.g., "7.5")
+- API: seconds (multiply by 3600)
 
-## Efficiency
+## Common Issues
 
-This skill minimizes browser interaction:
-- Single script reads all Intervals entries at once
-- Mappings are cached locally
-- FreshBooks automation is batched
-- User reviews before committing
+1. **Project not found**: Run `./scripts/freshbooks-api.sh projects` to see available project names.
+
+2. **Token expired**: The script auto-refreshes tokens, but if it fails, run `./scripts/freshbooks-oauth.sh refresh`.
+
+3. **Week mismatch**: Make sure you're reading the correct week from Intervals.
+
+4. **1Password CLI**: If using `op://` references, ensure you're signed in (`op signin`).
