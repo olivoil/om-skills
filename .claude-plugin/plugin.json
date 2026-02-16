@@ -1,10 +1,10 @@
 {
   "name": "tt",
-  "version": "1.1.0",
-  "description": "Time entry automation: fill Intervals from daily notes, sync Intervals to FreshBooks",
+  "version": "1.2.0",
+  "description": "Time entry automation: fill Intervals from daily notes with GitHub and Outlook calendar correlation, sync to FreshBooks",
   "author": {
     "name": "olivoil"
   },
   "repository": "https://github.com/olivoil/intervals-time-entry",
-  "keywords": ["intervals", "freshbooks", "time-entry", "timesheet", "automation", "browser"]
+  "keywords": ["intervals", "freshbooks", "time-entry", "timesheet", "automation", "browser", "outlook", "calendar", "microsoft-graph"]
 }

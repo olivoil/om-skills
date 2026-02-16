@@ -5,8 +5,8 @@
     "email": "olivoil@users.noreply.github.com"
   },
   "metadata": {
-    "description": "Time entry automation for Intervals and FreshBooks",
-    "version": "1.0.0"
+    "description": "Time entry automation for Intervals and FreshBooks with Outlook calendar integration",
+    "version": "1.2.0"
   },
   "plugins": [
     {
@@ -15,15 +15,15 @@
         "source": "github",
         "repo": "olivoil/intervals-time-entry"
       },
-      "description": "Fill Intervals from daily notes, sync Intervals to FreshBooks",
-      "version": "1.1.0",
+      "description": "Fill Intervals from daily notes with GitHub and Outlook calendar correlation, sync to FreshBooks",
+      "version": "1.2.0",
       "author": {
         "name": "olivoil"
       },
       "homepage": "https://github.com/olivoil/intervals-time-entry",
       "repository": "https://github.com/olivoil/intervals-time-entry",
       "license": "MIT",
-      "keywords": ["intervals", "freshbooks", "time-entry", "timesheet", "automation"],
+      "keywords": ["intervals", "freshbooks", "time-entry", "timesheet", "automation", "outlook", "calendar"],
       "category": "productivity"
     }
   ]
