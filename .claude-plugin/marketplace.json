@@ -11,10 +11,7 @@
   "plugins": [
     {
       "name": "om",
-      "source": {
-        "source": "github",
-        "repo": "olivoil/om-skills"
-      },
+      "source": "./",
       "description": "Personal Claude Code skills collection: Intervals time entries, FreshBooks sync, session summaries, and more",
       "version": "2.0.0",
       "author": {
