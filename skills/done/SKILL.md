@@ -35,11 +35,11 @@ If a section has no items, omit it entirely.
 
 ### 3. Write the session file
 
-**Path**: `$OBSIDIAN_VAULT_PATH/💻 Coding/{date}--{branch}.md`
+**Path**: `$OBSIDIAN_VAULT_PATH/💻 Coding/{date}--{repo-name}--{branch}.md`
 
-If the branch name contains `/`, replace them with `-` (e.g. `feature/foo` becomes `feature-foo`).
+Use just the repo name (e.g. `om-skills` from `olivoil/om-skills`). If the branch name contains `/`, replace them with `-` (e.g. `feature/foo` becomes `feature-foo`).
 
-If a file already exists at that path (same branch, same day), append a counter: `{date}--{branch}--2.md`, `{date}--{branch}--3.md`, etc.
+If a file already exists at that path (same branch, same day), append a counter: `{date}--{repo-name}--{branch}--2.md`, `{date}--{repo-name}--{branch}--3.md`, etc.
 
 **Format**:
 
@@ -83,13 +83,13 @@ Look for an existing `### Coding Sessions` section. If found, append the new lin
 
 ------
 ### Coding Sessions
-- [[{date}--{branch}]] - {one-line summary}
+- [[{date}--{repo-name}--{branch}]] - {one-line summary}
 ```
 
 If the section already exists, just append the new bullet:
 
 ```markdown
-- [[{date}--{branch}]] - {one-line summary}
+- [[{date}--{repo-name}--{branch}]] - {one-line summary}
 ```
 
 ### 5. Confirm
