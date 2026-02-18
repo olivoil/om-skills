@@ -4,10 +4,6 @@
     "name": "olivoil",
     "email": "olivoil@users.noreply.github.com"
   },
-  "metadata": {
-    "description": "Personal Claude Code skills collection",
-    "version": "2.0.0"
-  },
   "plugins": [
     {
       "name": "om",
@@ -17,11 +13,9 @@
       "author": {
         "name": "olivoil"
       },
-      "homepage": "https://github.com/olivoil/om-skills",
       "repository": "https://github.com/olivoil/om-skills",
       "license": "MIT",
       "keywords": ["intervals", "freshbooks", "time-entry", "obsidian", "productivity", "automation"],
-      "category": "productivity",
       "skills": ["./skills/"]
     }
   ]
