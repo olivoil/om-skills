@@ -9,7 +9,8 @@ This is a Claude Code plugin (`om`) — a personal skills collection. Current sk
 - `/intervals-time-entry [date]` — Fill Intervals time entries from daily notes (`📅 Daily Notes/YYYY-MM-DD.md`)
 - `/intervals-to-freshbooks [week-start]` — Sync a week of Intervals entries to FreshBooks
 - `/done` — Capture session summary into Obsidian vault and link from daily note
-- `/refine [date]` — Improve daily notes: polish writing, add wikilinks, extract long sections, suggest new entities
+- `/refine [date]` — Improve daily notes: polish writing, add wikilinks, extract long sections, suggest new entities (also transcribes meeting recordings from Google Drive links)
+- `/transcribe-meeting <url-or-path>` — Transcribe a meeting recording and create a structured meeting note with summary, decisions, and action items
 
 There is no build system, test suite, or linter. The project is pure JavaScript (browser scripts executed via chrome-devtools MCP) and Bash (API utilities).
 
@@ -26,7 +27,10 @@ skills/
 │   ├── references/             # Mapping files (project, worktype, github, outlook, people)
 │   └── scripts/                # Browser JS + GitHub fetch bash script
 ├── refine/                     # Daily note improvement (wikilinks, extraction)
-│   └── SKILL.md                # Workflow definition (6 phases)
+│   └── SKILL.md                # Workflow definition (7 phases, incl. meeting transcription)
+├── transcribe-meeting/         # Meeting recording → structured notes
+│   ├── SKILL.md                # Workflow definition (standalone + refine integration)
+│   └── scripts/                # download-gdrive.sh, transcribe.sh
 └── intervals-to-freshbooks/    # Intervals → FreshBooks (API + browser)
     ├── SKILL.md                # Workflow definition (5 phases)
     ├── references/             # Intervals→FreshBooks project mappings
