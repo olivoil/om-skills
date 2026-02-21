@@ -9,7 +9,7 @@
       "name": "om",
       "source": "./",
       "description": "Personal Claude Code skills collection: Intervals time entries, FreshBooks sync, session summaries, and more",
-      "version": "2.4.0",
+      "version": "2.5.0",
       "author": {
         "name": "olivoil"
       },

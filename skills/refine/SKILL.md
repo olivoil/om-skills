@@ -1,7 +1,7 @@
 ---
 name: refine
 description: Improve Obsidian daily notes — polish writing, add missing wikilinks, extract long sections into dedicated notes, and suggest new vault entities. Use when the user types /refine or asks to clean up daily notes.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(echo $*), Bash(bash skills/transcribe-meeting/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls /tmp/meeting*), Bash(ls /run/media/*), Bash(youtubeuploader *), Bash(ls ~/Videos/*), Bash(bc *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(echo $*), Bash(bash skills/transcribe-meeting/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls /tmp/meeting*), Bash(ls /run/media/*), Bash(youtubeuploader *), Bash(ls ~/Videos/*), Bash(ls ~/Pictures/*), Bash(bc *), ToolSearch
 ---
 
 # Refine Daily Notes
@@ -86,11 +86,28 @@ Detect meeting recordings and transcribe them into meeting notes. Two sub-phases
       - `recording_mode: "{mode}"`
 
    **Phase 3.5: Extract Key Screenshots** (only when video recording exists):
-   After creating the meeting note, scan the transcript for visual moments (screen sharing, demos, "as you can see", "look at this", code references, topic transitions). Select 3-8 key timestamps and extract frames:
+
+   **Step 1 — Find user screenshots taken during the meeting**:
    ```bash
-   ffmpeg -ss {secs} -i "{video}" -frames:v 1 -q:v 2 -y "$VAULT/🗜️Attachments/{name}-{MM-SS}.png"
+   bash skills/transcribe-meeting/scripts/find-screenshots.sh "{date}" "{start_time}" "{duration_secs}"
    ```
-   Then edit the meeting note to embed screenshots at corresponding transcript positions using `![[filename.png]]`.
+   This returns a JSON array of screenshots from `~/Pictures/` (or `$OMARCHY_SCREENSHOT_DIR` / `$XDG_PICTURES_DIR`) taken during the meeting timeframe (±5 min buffer). Each entry has `path`, `timestamp`, and `offset_secs`.
+
+   **Step 2 — Copy and embed user screenshots**:
+   For each found screenshot:
+   - Copy to `$VAULT/🗜️Attachments/{meeting-name}-user-{HH-MM-SS}.png`
+   - Place in the meeting note at the transcript position closest to its `offset_secs`
+   - Embed using `![[filename.png]]`
+
+   **Step 3 — Supplement with ffmpeg-extracted frames**:
+   - If fewer than 3 user screenshots were found, scan the transcript for visual moments (screen sharing, demos, "as you can see", "look at this", code references, topic transitions) and extract additional frames to reach 3-8 total:
+     ```bash
+     ffmpeg -ss {secs} -i "{video}" -frames:v 1 -q:v 2 -y "$VAULT/🗜️Attachments/{name}-{MM-SS}.png"
+     ```
+   - If 3+ user screenshots were found, skip ffmpeg extraction entirely.
+   - If no user screenshots at all, fall back entirely to existing ffmpeg extraction behavior (select 3-8 key timestamps).
+
+   Embed all screenshots at corresponding transcript positions using `![[filename.png]]`.
 
 9. **Post-process & upload**: After transcription completes for each group:
 
@@ -167,6 +184,23 @@ Scan the daily note for Google Drive audio links and transcribe them into meetin
 
 If no recordings are found from either source, skip this phase silently.
 
+#### Phase 1c: Meeting Action Items → Daily Todos
+
+After all meeting notes are created (from Phase 1a and 1b), extract action items and propose them as daily todos.
+
+1. **Collect action items**: For each newly created meeting note, read its `## Action Items` section.
+2. **Filter for Olivier's items**: Extract items assigned to Olivier (look for `@Olivier`, `Olivier:`, or unattributed items from 1:1 meetings where Olivier is a participant).
+3. **Map to projects**: Use the meeting frontmatter `project:` field to determine which project section each item belongs to.
+4. **Check for duplicates**: Fuzzy-match each proposed todo against existing todos in the daily note. Skip items that are already present (even if worded slightly differently).
+5. **Present proposed insertions** grouped by project:
+   > From [[2026-02-20 EXSQ Sol 1-1 Sync]]:
+   > - [ ] [[EXSQ]] - Set up Claude Code access for Sol
+   > - [ ] [[EXSQ]] - Explore Figma + GitHub integration feasibility
+6. **If approved**, insert under the matching project heading in the daily note's todos section. If no matching heading exists, create one using `### [[Project]]` format.
+7. **Format**: `- [ ] [[Project]] - task description (from [[Meeting Note]])` with nested sub-items if the action item has sub-tasks.
+
+If no new meeting notes were created or no action items found, skip this phase silently.
+
 ### Phase 2: Discover Vault Entities
 
 Build a catalog of all known entities so you can match them against the daily note text.
@@ -178,6 +212,26 @@ Build a catalog of all known entities so you can match them against the daily no
 5. **Meetings**: List files in `$VAULT/🎙️ Meetings/` — for cross-reference awareness and to avoid duplicate transcription
 
 This gives you the full entity catalog to match against the daily note.
+
+### Phase 2b: Slack Activity Scan (Optional)
+
+**This phase is optional** — skip gracefully if Slack MCP tools are unavailable.
+
+1. **Load Slack tools**: Use `ToolSearch` to search for `slack` tools. If no Slack MCP tools are available, skip this phase entirely with no error.
+2. **Search for user's messages** on the target date using `slack_search_public_and_private`:
+   - Query: `from:<@U07J89FDWPJ> on:{date}`
+3. **Group messages** by channel and 30-minute time windows.
+4. **Build a time coverage map** from existing daily note time entries (start times, durations, projects).
+5. **Identify gaps**: time windows with 3+ Slack messages but no matching time entry.
+6. **Infer channel→project mapping** from channel names and existing time entries:
+   - Check cached mappings in `$VAULT/.claude/intervals-cache/slack-mappings.md`
+   - If a new channel→project mapping is discovered, append it to the cache file
+7. **Present findings**:
+   > Slack activity not covered by time entries:
+   > - **#technomic-dev** (2:30-3:15pm, 8 messages): discussed vector search PR issues → [[Technomic]]?
+   > - **#exsq-general** (4:00-4:20pm, 4 messages): coordinated with team on AI Upskill → [[EXSQ]]?
+   > Add time entries for these?
+8. **If approved**, suggest time entry lines but do **NOT** auto-insert into time entries — present them for the user to manually add (time entries are sacred structured data).
 
 ### Phase 3: Analyze & Improve Writing
 
@@ -273,6 +327,32 @@ After creating new entities:
 - Add them to the respective MOC file (e.g., Persons MOC, Topics MOC) if one exists
 - Link them in the daily note (they now exist as vault pages)
 
+### Phase 5c: Suggest Todo Completions
+
+Scan unchecked todos against today's content to suggest completions with high confidence.
+
+1. **Collect unchecked todos** from the daily note (lines matching `- [ ]`).
+2. **Build an evidence corpus** from:
+   - Meeting note `## Decisions` and `## Action Items` sections (items marked complete)
+   - Coding session summaries and files changed (from `💻 Coding/` notes for this date)
+   - PR review verdicts (merged PRs mentioned in notes)
+   - Daily note prose sections
+3. **Match todos to evidence** — for each unchecked todo, check for HIGH confidence matches only:
+   - Strong keyword overlap between todo text and evidence
+   - Explicit completion signals ("merged PR #X", "completed", "done", "shipped", "deployed")
+4. **Present suggestions with evidence**:
+   > These todos appear done based on today's work:
+   > - `review PRs` — Evidence: wrote detailed reviews for PRs #650, #636, #571, #469
+   > - `fix vector search` — Evidence: coding session [[2026-02-20--TechnomicIgnite--fix-vector-search]] shows fixes deployed
+   > Mark as complete? (✅ 2026-02-20)
+5. **If approved**, check off the todos: change `- [ ]` to `- [x]` and append completion date ` (✅ {date})`.
+
+**Rules:**
+- Never suggest more than 5 completions at once
+- Skip anything below ~80% confidence — better to miss one than suggest a false positive
+- Never auto-complete without user approval
+- If no high-confidence matches found, skip this phase silently
+
 ### Phase 6: Apply & Confirm
 
 1. **Show a summary** of all proposed changes before writing:
@@ -283,6 +363,36 @@ After creating new entities:
 2. **Get user approval** before applying
 3. **Apply changes**: edit the daily note, create any extracted/new entity notes
 4. **Report**: what was changed, what was linked, what was extracted, what was created
+
+### Phase 7: Update Project Recent Activity
+
+After all daily note changes are applied, update each referenced project's note with a summary of today's activity.
+
+1. **Identify projects** from today's time entries in the daily note.
+2. **For each project** with a note in `$VAULT/🗂️ Projects/`:
+   - Read the existing `## Recent Activity` section (or prepare to create it)
+   - Build today's entry: `- **{date}**: {hours}h — {brief summary} (meetings: [[links]], coding: [[links]])`
+   - Prune entries older than 7 days from the section
+   - Insert the `## Recent Activity` section before `## Key Features` or at the end of the note if no logical insertion point
+3. **Check idempotency**: If an entry for today's date already exists, update it rather than duplicating.
+4. **Present all proposed project note updates** for approval before applying.
+5. **Apply changes** if approved.
+
+### Phase 7b: Update Person Interaction History
+
+Update person notes for anyone who appeared in today's meetings.
+
+1. **Collect participants** from all newly created meeting notes (from frontmatter `participants:` field).
+2. **For each person** with a note in `$VAULT/👤 Persons/`:
+   - Read the existing `## Recent Interactions` section (or prepare to create it)
+   - Build entry: `- **{date}**: [[Meeting Note]] — {topics discussed, action items for/from them}`
+   - Prune entries older than 30 days from the section
+   - Insert the `## Recent Interactions` section before `## Notes` or at the end of the note
+3. **Check idempotency**: If an entry for today's date + same meeting already exists, skip it.
+4. **Present all proposed person note updates** for approval before applying.
+5. **Apply changes** if approved.
+
+If no new meeting notes were created or no participants have vault pages, skip this phase silently.
 
 ## Key Rules
 
