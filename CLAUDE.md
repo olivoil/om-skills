@@ -23,7 +23,7 @@ skills/
 ├── done/                       # Session summary → Obsidian vault
 │   └── SKILL.md                # Workflow definition
 ├── intervals-time-entry/       # Notes → Intervals (browser automation)
-│   ├── SKILL.md                # Workflow definition (6 phases + GitHub/Outlook correlation)
+│   ├── SKILL.md                # Workflow definition (8 phases + GitHub/Outlook correlation)
 │   ├── references/             # Mapping files (project, worktype, github, outlook, people)
 │   └── scripts/                # Browser JS + GitHub fetch bash script
 ├── refine/                     # Daily note improvement (wikilinks, extraction)
@@ -90,6 +90,13 @@ The skill reads the Outlook calendar visually via browser screenshot (chrome-dev
 - **Enhance descriptions** — use meeting subjects and visible attendee names to replace vague notes like "meeting" with specific details
 - **Time gap analysis** — combine calendar events with GitHub commit timestamps to reconstruct the full workday and identify unaccounted blocks
 - **Learn mappings** — auto-populate `outlook-mappings.md` with recurring meeting→project associations (inferred from subjects, attendees via `people-context.md`, or user confirmation)
+
+### Time Entry Persistence
+
+After filling entries in Intervals, the skill writes them back in two forms:
+
+- **Daily note table** — An `### Intervals` markdown table inserted into the daily note with project, hours, and description columns. Provides a permanent Obsidian record of what was submitted.
+- **SQLite database** — Entries are inserted into `$OBSIDIAN_VAULT_PATH/.claude/time-entries.db` for cross-day/week/month querying. Uses `INSERT OR REPLACE` for idempotent re-runs.
 
 ## Plugin Distribution
 

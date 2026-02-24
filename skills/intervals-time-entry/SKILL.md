@@ -1,7 +1,7 @@
 ---
 name: intervals-time-entry
 description: Fill Intervals Online time entries from daily notes with GitHub and Outlook calendar correlation. Use when asked to fill time entries, timesheets, or submit hours to Intervals. Requires chrome-devtools MCP with browser open to Intervals.
-allowed-tools: mcp__chrome-devtools__*, Bash(op read*), Bash(gh *), Bash(bash .claude/intervals-cache/*.sh *), Read, Write, Edit
+allowed-tools: mcp__chrome-devtools__*, Bash(op read*), Bash(gh *), Bash(bash .claude/intervals-cache/*.sh *), Bash(sqlite3 *), Read, Write, Edit
 ---
 
 # Intervals Time Entry Automation
@@ -372,6 +372,107 @@ This helps future runs instantly map recurring meetings to the correct project a
 ### Phase 6: Verify
 
 Take screenshot to confirm entries are correct.
+
+### Phase 7: Write Time Entry Table to Daily Note
+
+After verification, write the finalized entries back to the Obsidian daily note as a permanent record.
+
+#### Step 1: Resolve Vault Path
+
+Read `$OBSIDIAN_VAULT_PATH` from the environment. The daily note is at:
+```
+$OBSIDIAN_VAULT_PATH/📅 Daily Notes/YYYY-MM-DD.md
+```
+
+#### Step 2: Read the Daily Note
+
+Read the daily note file to find the insertion point.
+
+#### Step 3: Insert or Replace the Intervals Section
+
+Look for an existing `### Intervals` section:
+- **If found**: Replace the entire section (from `### Intervals` to the next `###` or `---` or end of file) with the updated table
+- **If not found**: Insert the section using this priority:
+  1. Before `### Coding Sessions` if it exists
+  2. After `### Todos` (before the next `###` or `---`)
+  3. At the end of the note if neither exists
+
+#### Step 4: Write the Table
+
+Format as a markdown table with a horizontal rule before it:
+
+```markdown
+------
+### Intervals
+| Project | Hours | Description |
+|---------|------:|-------------|
+| Ignite Application Development & Support | 2 | Weekly touchbase with Technomic |
+| EWG Feature Enhancement Addendum | 3.5 | Add pagination endpoint (PR #574) |
+| **Total** | **5.5** | |
+```
+
+- Use the same ENTRIES data that was sent to `fill-entries.js`
+- Right-align the Hours column
+- Add a bold **Total** row summing all hours
+- The `------` separator goes before `### Intervals` to visually separate it from the section above
+
+### Phase 8: Insert into SQLite Database
+
+After writing the daily note table, insert the same entries into an SQLite database for cross-day querying.
+
+#### Database Location
+
+```
+$OBSIDIAN_VAULT_PATH/.claude/time-entries.db
+```
+
+#### Schema
+
+Created on first use via `CREATE TABLE IF NOT EXISTS`:
+
+```sql
+CREATE TABLE IF NOT EXISTS time_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,          -- YYYY-MM-DD
+  project TEXT NOT NULL,
+  work_type TEXT NOT NULL,
+  hours REAL NOT NULL,
+  description TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_unique
+  ON time_entries(date, project, work_type, description);
+```
+
+#### Insert Entries
+
+Use `INSERT OR REPLACE` to make re-runs idempotent:
+
+```sql
+INSERT OR REPLACE INTO time_entries (date, project, work_type, hours, description)
+VALUES ('2026-02-04', 'Ignite Application Development & Support', 'Meeting: Client Meeting - US', 2, 'Weekly touchbase with Technomic');
+```
+
+Run via Bash:
+```bash
+sqlite3 "$OBSIDIAN_VAULT_PATH/.claude/time-entries.db" <<'SQL'
+CREATE TABLE IF NOT EXISTS time_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,
+  project TEXT NOT NULL,
+  work_type TEXT NOT NULL,
+  hours REAL NOT NULL,
+  description TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_unique
+  ON time_entries(date, project, work_type, description);
+INSERT OR REPLACE INTO time_entries (date, project, work_type, hours, description)
+VALUES ('YYYY-MM-DD', 'Project Name', 'Work Type', 2.0, 'Description here');
+SQL
+```
+
+Repeat the `INSERT OR REPLACE` for each entry in the ENTRIES array.
 
 ## Quick Reference
 
