@@ -31,7 +31,7 @@ FILENAME=$(basename "$LOCAL_FILE")
 REMOTE_PATH="${REMOTE}:${REMOTE_FOLDER}/${FILENAME}"
 
 # Check if already uploaded (same name and size)
-LOCAL_SIZE=$(stat -c%s "$LOCAL_FILE" 2>/dev/null || stat -f%z "$LOCAL_FILE")
+LOCAL_SIZE=$(stat -c '%s' "$LOCAL_FILE" 2>/dev/null || stat -f '%z' "$LOCAL_FILE")
 REMOTE_SIZE=$(rclone size --json "${REMOTE_PATH}" 2>/dev/null | jq -r '.bytes // 0' 2>/dev/null || echo "0")
 
 if [ "$REMOTE_SIZE" -eq "$LOCAL_SIZE" ] 2>/dev/null && [ "$REMOTE_SIZE" -gt 0 ]; then

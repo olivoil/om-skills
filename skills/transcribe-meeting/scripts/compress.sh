@@ -35,7 +35,7 @@ fi
 echo "Compressing: $(basename "$WAV") → $(basename "$MP3")..." >&2
 ffmpeg -i "$WAV" -ac 1 -ab 128k -y "$MP3" -loglevel warning 2>&2
 
-SIZE=$(stat -c%s "$MP3" 2>/dev/null || stat -f%z "$MP3")
+SIZE=$(stat -c '%s' "$MP3" 2>/dev/null || stat -f '%z' "$MP3")
 echo "Created: $MP3 ($(( SIZE / 1024 / 1024 ))MB)" >&2
 
 echo "$MP3"

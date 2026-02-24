@@ -42,7 +42,7 @@ fi
 echo "Merging: $(basename "$VIDEO") + $(basename "$AUDIO") → $(basename "$OUTPUT")..." >&2
 ffmpeg -i "$VIDEO" -i "$AUDIO" -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest -y "$OUTPUT" -loglevel warning 2>&2
 
-SIZE=$(stat -c%s "$OUTPUT" 2>/dev/null || stat -f%z "$OUTPUT")
+SIZE=$(stat -c '%s' "$OUTPUT" 2>/dev/null || stat -f '%z' "$OUTPUT")
 echo "Created: $OUTPUT ($(( SIZE / 1024 / 1024 ))MB)" >&2
 
 echo "$OUTPUT"

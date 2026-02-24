@@ -39,7 +39,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 WAV_FILE=$(bash "$SCRIPT_DIR/trim-silence.sh" "$WAV_FILE")
 
 # --- Check file size and chunk if needed (OpenAI has 25MB limit) ---
-FILE_SIZE=$(stat -c%s "$WAV_FILE" 2>/dev/null || stat -f%z "$WAV_FILE")
+FILE_SIZE=$(stat -c '%s' "$WAV_FILE" 2>/dev/null || stat -f '%z' "$WAV_FILE")
 MAX_SIZE=$((25 * 1024 * 1024))  # 25MB
 
 transcribe_openai_chunk() {

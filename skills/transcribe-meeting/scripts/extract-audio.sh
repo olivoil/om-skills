@@ -41,7 +41,7 @@ fi
 echo "Extracting audio: $(basename "$VIDEO") → $(basename "$WAV")..." >&2
 ffmpeg -i "$VIDEO" -vn -acodec pcm_s16le -ar 48000 -ac 2 -y "$WAV" -loglevel warning 2>&2
 
-SIZE=$(stat -c%s "$WAV" 2>/dev/null || stat -f%z "$WAV")
+SIZE=$(stat -c '%s' "$WAV" 2>/dev/null || stat -f '%z' "$WAV")
 echo "Created: $WAV ($(( SIZE / 1024 / 1024 ))MB)" >&2
 
 echo "$WAV"
