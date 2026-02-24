@@ -9,14 +9,23 @@
       "name": "om",
       "source": "./",
       "description": "Personal Claude Code skills collection: Intervals time entries, FreshBooks sync, session summaries, and more",
-      "version": "2.6.0",
+      "version": "2.6.1",
       "author": {
         "name": "olivoil"
       },
       "repository": "https://github.com/olivoil/om-skills",
       "license": "MIT",
-      "keywords": ["intervals", "freshbooks", "time-entry", "obsidian", "productivity", "automation"],
-      "skills": ["./skills/"],
+      "keywords": [
+        "intervals",
+        "freshbooks",
+        "time-entry",
+        "obsidian",
+        "productivity",
+        "automation"
+      ],
+      "skills": [
+        "./skills/"
+      ],
       "strict": false
     }
   ]
