@@ -11,6 +11,7 @@ async () => {
   const DAY_INDEX = 2;
   
   // Validated entries - use exact project/workType names from dropdowns
+  // Optional "module" field: use exact module name, or omit to auto-select "No Module" if dropdown exists
   const ENTRIES = [
     { project: "Ignite Application Development & Support", workType: "Meeting: Client Meeting - US", hours: "1", description: "Example entry" },
     // Add more entries...
@@ -87,7 +88,19 @@ async () => {
       results.push({ row: rowIndex, error: `Project not found: ${entry.project}` });
       return false;
     }
-    await sleep(400); // Wait for work type dropdown to reload
+    await sleep(400); // Wait for module/work type dropdowns to reload
+
+    // 1.5. Select Module (if dropdown exists)
+    const moduleCell = row.querySelector('.col-time-multiple-module');
+    if (moduleCell) {
+      const moduleTarget = entry.module || 'No Module';
+      const moduleOk = await selectDropdown(row, 'col-time-multiple-module', moduleTarget);
+      if (!moduleOk) {
+        results.push({ row: rowIndex, error: `Module not found: ${moduleTarget}` });
+        return false;
+      }
+      await sleep(300);
+    }
 
     // 2. Select Work Type
     const wtOk = await selectDropdown(row, 'col-time-multiple-worktype', entry.workType);

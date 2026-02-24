@@ -206,9 +206,9 @@ Compare calendar durations against note durations and flag discrepancies:
 ```
 
 **Rules for duration validation:**
-- Calendar duration is the source of truth for scheduled meetings
-- If notes duration is significantly less than calendar, suggest the calendar duration
-- If notes duration is more than calendar, the meeting may have included prep/follow-up — keep notes but flag
+- **Notes duration is the source of truth** — if notes say 1.5h and calendar says 1h, trust the notes (it means more time was spent than scheduled)
+- If a time entry links to a meeting note (e.g., `[[2026-02-19 Meeting Name]]`), check the meeting note for a recording duration — the time entry cannot be less than that duration
+- If notes duration is more than calendar, the meeting may have included prep/follow-up — keep notes as-is
 - All-day events are reminders, not meetings — ignore for duration
 - Events the user declined (strikethrough) should be excluded entirely
 
@@ -260,7 +260,12 @@ This gap analysis helps:
 If the project cache doesn't exist, create it by copying from `references/project-mappings.md`.
 If the GitHub mappings cache doesn't exist, create it from `references/github-mappings.md`.
 
-Output format: `Project | Work Type | Hours | Description`
+Output format: `Project | Module (if applicable) | Work Type | Hours | Description`
+
+**Module handling**: Some projects have a Module dropdown (e.g., Optimizely CMS Decoupling). Check `project-mappings.md` for listed modules. When building entries:
+- If the work matches a specific module, include `module: "Module Name"` in the entry
+- If no specific module applies, **omit the module field** — the fill script will automatically select "No Module"
+- The script detects the Module dropdown at runtime; projects without it are unaffected
 
 ### Phase 3: Validate Against Cache
 
