@@ -213,11 +213,11 @@ Build a catalog of all known entities so you can match them against the daily no
 
 This gives you the full entity catalog to match against the daily note.
 
-### Phase 2b: Slack Activity Scan (Optional)
+### Phase 2b: Slack Activity Scan
 
-**This phase is optional** — skip gracefully if Slack MCP tools are unavailable.
+**Always run this phase.** If Slack MCP tools are unavailable, skip gracefully with no error.
 
-1. **Load Slack tools**: Use `ToolSearch` to search for `slack` tools. If no Slack MCP tools are available, skip this phase entirely with no error.
+1. **Load Slack tools**: Use `ToolSearch` to search for `slack` tools. If no Slack MCP tools are available, skip this phase with no error — but always attempt it first.
 2. **Search for user's messages** on the target date using `slack_search_public_and_private`:
    - Query: `from:<@U07J89FDWPJ> on:{date}`
 3. **Group messages** by channel and 30-minute time windows.
