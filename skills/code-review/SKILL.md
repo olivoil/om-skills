@@ -68,7 +68,7 @@ Finally, launch a **Haiku agent** to produce a 2-3 sentence summary of the PR's 
 
 ## Phase 3: Analyze Changes (Multi-Agent)
 
-Launch **9 parallel Sonnet agents** via the Task tool (`subagent_type: "general-purpose"`, `model: "sonnet"`). Provide each agent with:
+Launch **7 parallel agents** via the Task tool (`subagent_type: "general-purpose"`). Provide each agent with:
 - The full PR diff
 - CLAUDE.md contents (root + directory-level)
 - The PR summary from Phase 2
@@ -78,22 +78,21 @@ Each agent focuses on one review dimension. Instruct each to return a JSON array
 
 ### General Review Agents
 
-| # | Focus | Instructions |
-|---|-------|-------------|
-| 1 | **CLAUDE.md compliance** | Audit changes against project conventions in CLAUDE.md. Only flag violations of rules explicitly stated in CLAUDE.md. If no CLAUDE.md exists, return an empty array. |
-| 2 | **Bug detection** | Shallow scan of the diff for obvious bugs: logic errors, off-by-one, null/undefined risks, race conditions, resource leaks. Avoid stylistic nitpicks. |
-| 3 | **Git history context** | Run `git log` and `git blame` on modified files. Identify bugs or regressions only visible with historical knowledge (e.g., reverted fixes, violated assumptions from past commits). |
-| 4 | **Previous PR comments** | Use `gh pr list --state merged --search` to find previous PRs that touched these files. Check their review comments for patterns that may apply here too. |
-| 5 | **Code comment compliance** | Read the full source files (not just the diff) for inline comments: `// TODO`, `// IMPORTANT`, `// NOTE`, `// HACK`, `// FIXME`. Ensure changes respect these annotations. |
+| # | Model | Focus | Instructions |
+|---|-------|-------|-------------|
+| 1 | Sonnet | **CLAUDE.md compliance** | Audit changes against project conventions in CLAUDE.md. Only flag violations of rules explicitly stated in CLAUDE.md. If no CLAUDE.md exists, return an empty array. |
+| 2 | Sonnet | **Bug detection** | Shallow scan of the diff for obvious bugs: logic errors, off-by-one, null/undefined risks, race conditions, resource leaks. Avoid stylistic nitpicks. |
+| 3 | Sonnet | **Git history context** | Run `git log` and `git blame` on modified files. Identify bugs or regressions only visible with historical knowledge (e.g., reverted fixes, violated assumptions from past commits). |
+| 4 | Haiku | **Previous PR comments** | Use `gh pr list --state merged --search` to find previous PRs that touched these files. Check their review comments for patterns that may apply here too. |
+| 5 | Haiku | **Code comment compliance** | Read the full source files (not just the diff) for inline comments: `// TODO`, `// IMPORTANT`, `// NOTE`, `// HACK`, `// FIXME`. Ensure changes respect these annotations. |
 
 ### Specialized Review Agents
 
-| # | Focus | Instructions |
-|---|-------|-------------|
-| 6 | **Security** | OWASP top 10: injection (SQL, command, XSS), auth bypass, credential exposure, insecure deserialization, SSRF, path traversal. Check for hardcoded secrets, unsafe `eval`, unvalidated redirects, missing input sanitization. |
-| 7 | **Error handling** | Empty catch blocks, swallowed errors, broad exception handling (`catch(e) {}`), missing error propagation, fallback behavior that hides real problems. Ensure callers get actionable feedback on failures. |
-| 8 | **Test coverage** | Are there tests for new/changed code? Missing edge case coverage? Do tests assert meaningful behavior or just check happy paths? Flag untested error paths and missing boundary tests. |
-| 9 | **Performance** | N+1 queries, unnecessary re-renders, memory leaks, O(n²) where O(n) is possible, large/unnecessary imports, missing pagination, unbounded loops or allocations. |
+| # | Model | Focus | Instructions |
+|---|-------|-------|-------------|
+| 6 | Sonnet | **Security** | OWASP top 10: injection (SQL, command, XSS), auth bypass, credential exposure, insecure deserialization, SSRF, path traversal. Check for hardcoded secrets, unsafe `eval`, unvalidated redirects, missing input sanitization. |
+| 7 | Sonnet | **Error handling** | Empty catch blocks, swallowed errors, broad exception handling (`catch(e) {}`), missing error propagation, fallback behavior that hides real problems. Ensure callers get actionable feedback on failures. |
+| 8 | Sonnet | **Performance** | N+1 queries, unnecessary re-renders, memory leaks, O(n²) where O(n) is possible, large/unnecessary imports, missing pagination, unbounded loops or allocations. |
 
 **Each agent must return issues in this exact JSON format:**
 
@@ -114,7 +113,7 @@ Where:
 - `line` — line number in the new version of the file (from the diff's `+` side)
 - `severity` — one of `critical`, `important`, `suggestion`
 - `body` — markdown explanation, including a fix suggestion when possible
-- `category` — one of `claude-md`, `bug`, `history`, `previous-pr`, `code-comment`, `security`, `error-handling`, `test-coverage`, `performance`
+- `category` — one of `claude-md`, `bug`, `history`, `previous-pr`, `code-comment`, `security`, `error-handling`, `performance`
 
 ## Phase 4: Score & Filter
 
