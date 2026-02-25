@@ -204,12 +204,12 @@ bash skills/code-review/scripts/post-github-review.sh \
   --repo "{repo}" \
   --pr {number} \
   --commit "{head_sha}" \
-  --event "{PENDING|APPROVE|REQUEST_CHANGES|COMMENT}" \
+  --event "{APPROVE|REQUEST_CHANGES|COMMENT}" \
   --body "Review summary text" \
   --comments /tmp/review-comments-{number}.json
 ```
 
-Use `--event PENDING` for draft reviews (this is also the default if `--event` is omitted).
+Omit `--event` entirely to create a pending (draft) review.
 
 The comments JSON file format:
 

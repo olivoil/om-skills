@@ -6,9 +6,9 @@
 #     --owner "olivoil" --repo "my-app" --pr 123 \
 #     --commit "abc123" --body "Review summary" \
 #     --comments /tmp/comments.json \
-#     [--event PENDING|APPROVE|REQUEST_CHANGES|COMMENT]
+#     [--event APPROVE|REQUEST_CHANGES|COMMENT]
 #
-# Defaults to PENDING (draft review) if --event is omitted.
+# Omit --event to create a pending (draft) review.
 #
 # Comments JSON format:
 #   [{"path": "src/app.js", "line": 42, "body": "Issue description"}]
@@ -50,9 +50,10 @@ PAYLOAD=$(jq -n \
   --arg body "$BODY" \
   '{commit_id: $commit_id, body: $body}')
 
-# Add event (default to PENDING for draft reviews)
-EVENT="${EVENT:-PENDING}"
-PAYLOAD=$(echo "$PAYLOAD" | jq --arg event "$EVENT" '. + {event: $event}')
+# Add event if provided (omit for pending/draft review)
+if [[ -n "$EVENT" ]]; then
+  PAYLOAD=$(echo "$PAYLOAD" | jq --arg event "$EVENT" '. + {event: $event}')
+fi
 
 # Add comments if file provided and non-empty
 if [[ -n "$COMMENTS_FILE" && -f "$COMMENTS_FILE" ]]; then
