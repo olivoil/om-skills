@@ -151,6 +151,37 @@ If this is a re-review (previous review detected in Phase 1), categorize survivi
 
 Build a delta summary for inclusion in the review body.
 
+## Tone & Language
+
+All posted comments (both inline and the summary) must read as if written by a human reviewer — natural, conversational, and collegial. Never sound like an automated tool.
+
+**Inline comments:**
+- Use hedging language: "may", "might", "worth double-checking", "could be worth", "it looks like"
+- Avoid absolutist phrasing like "this is broken", "this will fail", "you must fix this"
+- Prefer "this might cause X" or "worth confirming whether Y is intentional"
+- Always provide a concrete suggestion or fix when possible (code snippet, alternative approach)
+- Suggest adding a test to verify when the issue is uncertain
+- Keep a helpful, non-confrontational tone — you're pointing things out, not issuing mandates
+
+**Summary comment (the `--body` text):**
+- Write it naturally, as if the reviewer is casually summarizing what they noticed
+- Use first person ("A few things I noticed", "I'd suggest", "Worth checking")
+- Use bullet points for a quick scannable list of the key findings
+- End with "See inline comments for details." to direct attention to the specifics
+- Do NOT include "Generated with Claude Code" or any AI attribution footer
+- Do NOT use a formal header like "## Code Review:" — just start talking
+
+**Example summary tone:**
+```
+A few things I noticed while going through this:
+
+- The `menuItems` array might need to be a `computed` — otherwise the `locked` flags won't react when user data arrives from the loader
+- `username` now maps to `userEmail`, which changes the avatar fallback display
+- Minor perf thing — the inline user object in the template could be a `computed`
+
+See inline comments for details.
+```
+
 ## Phase 6: Preview & Confirm
 
 Present all surviving findings to the user, grouped by severity.
