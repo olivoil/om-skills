@@ -1,6 +1,6 @@
 ---
 name: refine
-description: Improve Obsidian daily notes — polish writing, add missing wikilinks, extract long sections into dedicated notes, and suggest new vault entities. Use when the user types /refine or asks to clean up daily notes.
+description: Improve Obsidian daily notes — polish writing, add missing wikilinks, extract long sections into dedicated notes, suggest new vault entities, and summarize Slack activity. Use when the user types /refine or asks to clean up daily notes.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash(echo $*), Bash(bash skills/transcribe-meeting/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls /tmp/meeting*), Bash(ls /run/media/*), Bash(youtubeuploader *), Bash(ls ~/Videos/*), Bash(ls ~/Pictures/*), Bash(bc *), ToolSearch
 ---
 
@@ -243,6 +243,33 @@ This gives you the full entity catalog to match against the daily note.
    > - **DM with [[Sol Parrot|Sol]]** (12:16pm, ~1h54m): matches `[[EXSQ]] - 1:1 sync with Sol - 2` ✓
    > - **DM with [[Adam Herrneckar|Adam]]** (3:05pm, ~25m): no matching time entry — add one?
 9. **If approved**, suggest time entry lines but do **NOT** auto-insert into time entries — present them for the user to manually add (time entries are sacred structured data).
+
+### Phase 2c: Slack Activity Summary
+
+Using the data already gathered in Phase 2b, write a `### Slack Activity` section into the daily note summarizing the day's interactions.
+
+1. **Group by channel/conversation**: For each channel or DM where the user sent messages, build a brief summary:
+   - **Channel name** (linked to project if a mapping exists)
+   - **Time window** (e.g., 2:30–3:15pm)
+   - **Message count**
+   - **Topics discussed**: Summarize the key topics, decisions, or questions from the messages (keep to 1–2 sentences per channel). Use context from `slack_read_channel` / `slack_read_thread` if threads were read in Phase 2b, otherwise summarize from search result snippets.
+   - **Huddle indicator**: If a huddle was detected in this channel (from Phase 2b step 6), note it with duration.
+
+2. **Format** the section as a bullet list under `### Slack Activity`:
+   ```markdown
+   ### Slack Activity
+   - **#technomic-dev** (2:30–3:15pm, 8 msgs) — Discussed vector search indexing issues; agreed to switch to HNSW. [[Technomic]]
+   - **#exsq-general** (4:00–4:20pm, 4 msgs) — Coordinated AI Upskill session logistics with [[Sol Parrot|Sol]]. [[EXSQ]]
+   - **DM with [[Adam Herrneckar|Adam]]** (3:05–3:30pm, 3 msgs + huddle ~25m) — Reviewed deployment pipeline changes.
+   ```
+
+3. **Wikilink** any people and projects mentioned, using the entity catalog from Phase 2.
+
+4. **Placement**: Insert the section after the time entries block and before the first `### [[Project]]` section (or at the end if no project sections exist). If a `### Slack Activity` section already exists, replace it (idempotent).
+
+5. **Include in Phase 6 preview**: Show the proposed Slack Activity section as part of the change summary for user approval.
+
+If no Slack messages were found in Phase 2b, or Slack MCP tools were unavailable, skip this phase silently.
 
 ### Phase 3: Analyze & Improve Writing
 
