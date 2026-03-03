@@ -368,7 +368,7 @@ create_time_entry() {
                     is_logged: true,
                     duration: ($duration | tonumber),
                     note: $note,
-                    started_at: ($date + "T09:00:00.000Z"),
+                    started_at: ($date + "T12:00:00.000Z"),
                     client_id: ($cid | tonumber),
                     project_id: ($pid | tonumber),
                     identity_id: ($iid | tonumber)
@@ -387,7 +387,7 @@ create_time_entry() {
                     is_logged: true,
                     duration: ($duration | tonumber),
                     note: $note,
-                    started_at: ($date + "T09:00:00.000Z"),
+                    started_at: ($date + "T12:00:00.000Z"),
                     client_id: ($cid | tonumber),
                     identity_id: ($iid | tonumber)
                 }
@@ -443,15 +443,27 @@ list_time_entries() {
 
     local business_id=$(get_business_id)
 
-    api_get "/timetracking/business/$business_id/time_entries?started_from=${start_date}T00:00:00Z&started_to=${end_date}T23:59:59Z" \
-        | jq '.time_entries[] | {
-            id,
-            project_id,
-            client_id,
-            started_at,
-            hours: ((.duration // 0) / 3600),
-            note
-        }'
+    # FreshBooks has timezone issues: started_at is stored in UTC but dates
+    # may be off by +1 day depending on when entries were created.
+    # Widen the query window by 1 day on each side and filter client-side.
+    local prev_date=$(date -d "${start_date} - 1 day" +%Y-%m-%d 2>/dev/null || date -v-1d -j -f "%Y-%m-%d" "$start_date" +%Y-%m-%d)
+    local next_date=$(date -d "${end_date} + 1 day" +%Y-%m-%d 2>/dev/null || date -v+1d -j -f "%Y-%m-%d" "$end_date" +%Y-%m-%d)
+
+    api_get "/timetracking/business/$business_id/time_entries?started_from=${prev_date}T00:00:00Z&started_to=${next_date}T23:59:59Z" \
+        | jq --arg from "$start_date" --arg to "$end_date" '
+            .time_entries[] |
+            # Extract date from started_at, handling both "Z" and offset formats
+            (.started_at | split("T")[0]) as $date |
+            select($date >= $from and $date <= $to) |
+            {
+                id,
+                project_id,
+                client_id,
+                started_at,
+                date: $date,
+                hours: ((.duration // 0) / 3600),
+                note
+            }'
 }
 
 # ============================================================

@@ -431,7 +431,7 @@ $OBSIDIAN_VAULT_PATH/.claude/time-entries.db
 Created on first use via `CREATE TABLE IF NOT EXISTS`:
 
 ```sql
-CREATE TABLE IF NOT EXISTS time_entries (
+CREATE TABLE IF NOT EXISTS intervals_time_entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   date TEXT NOT NULL,          -- YYYY-MM-DD
   project TEXT NOT NULL,
@@ -440,8 +440,8 @@ CREATE TABLE IF NOT EXISTS time_entries (
   description TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_unique
-  ON time_entries(date, project, work_type, description);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_intervals_entries_unique
+  ON intervals_time_entries(date, project, work_type, description);
 ```
 
 #### Insert Entries
@@ -449,14 +449,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_unique
 Use `INSERT OR REPLACE` to make re-runs idempotent:
 
 ```sql
-INSERT OR REPLACE INTO time_entries (date, project, work_type, hours, description)
+INSERT OR REPLACE INTO intervals_time_entries (date, project, work_type, hours, description)
 VALUES ('2026-02-04', 'Ignite Application Development & Support', 'Meeting: Client Meeting - US', 2, 'Weekly touchbase with Technomic');
 ```
 
 Run via Bash:
 ```bash
 sqlite3 "$OBSIDIAN_VAULT_PATH/.claude/time-entries.db" <<'SQL'
-CREATE TABLE IF NOT EXISTS time_entries (
+CREATE TABLE IF NOT EXISTS intervals_time_entries (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   date TEXT NOT NULL,
   project TEXT NOT NULL,
@@ -465,9 +465,9 @@ CREATE TABLE IF NOT EXISTS time_entries (
   description TEXT,
   created_at TEXT DEFAULT (datetime('now'))
 );
-CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_unique
-  ON time_entries(date, project, work_type, description);
-INSERT OR REPLACE INTO time_entries (date, project, work_type, hours, description)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_intervals_entries_unique
+  ON intervals_time_entries(date, project, work_type, description);
+INSERT OR REPLACE INTO intervals_time_entries (date, project, work_type, hours, description)
 VALUES ('YYYY-MM-DD', 'Project Name', 'Work Type', 2.0, 'Description here');
 SQL
 ```

@@ -110,7 +110,66 @@ For each Intervals entry with hours on a given day:
   --hours 1.0
 ```
 
-### Phase 5: Verify
+### Phase 5: Persist to SQLite + Daily Notes
+
+After creating FreshBooks entries, persist them locally for comparison with Intervals data.
+
+#### Step 1: Read Back Entries from FreshBooks
+
+Use the API to list entries for the synced dates:
+```bash
+./scripts/freshbooks-api.sh list-time-entries --from "YYYY-MM-DD" --to "YYYY-MM-DD"
+```
+
+Also fetch project list to resolve project IDs → names:
+```bash
+./scripts/freshbooks-api.sh projects
+```
+
+#### Step 2: Insert into SQLite
+
+Insert each entry into the `freshbooks_time_entries` table:
+
+```bash
+sqlite3 "$OBSIDIAN_VAULT_PATH/.claude/time-entries.db" <<'SQL'
+CREATE TABLE IF NOT EXISTS freshbooks_time_entries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  date TEXT NOT NULL,
+  project TEXT NOT NULL,
+  hours REAL NOT NULL,
+  description TEXT,
+  freshbooks_entry_id TEXT,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fb_entries_unique
+  ON freshbooks_time_entries(date, project, description);
+INSERT OR REPLACE INTO freshbooks_time_entries (date, project, hours, description, freshbooks_entry_id)
+VALUES ('YYYY-MM-DD', 'Project Name', 2.0, 'Description', 'fb_entry_id');
+SQL
+```
+
+- For entries with a `project_id`: use the resolved project name (e.g., "Technomic", "EWG")
+- For entries without a `project_id` (client-only): use "EXSquared" as project, note as description
+
+#### Step 3: Append FreshBooks Section to Daily Notes
+
+For each date with entries, append a `### FreshBooks` section to the daily note:
+
+```markdown
+------
+### FreshBooks
+| Project | Hours | Description |
+|---------|------:|-------------|
+| Technomic | 2.0 | Development |
+| **Total** | **8.0** | |
+```
+
+- If `### FreshBooks` already exists in the note, replace it
+- If the daily note doesn't exist, create it with a minimal header
+- Right-align the Hours column
+- Add a bold **Total** row
+
+### Phase 6: Verify
 
 1. List created entries:
    ```bash
