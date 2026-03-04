@@ -14,7 +14,7 @@ Improve an Obsidian daily note by polishing prose, adding missing wikilinks to m
 
 1. Run `echo $OBSIDIAN_VAULT_PATH` to get the vault root. If empty, ask the user for the path.
 2. Determine the target date: use the argument if provided (e.g., `/refine 2026-02-14`), otherwise use today.
-3. Read the daily note at `$VAULT/📅 Daily Notes/{date}.md`. Error if missing.
+3. Read the daily note at `$VAULT/Daily Notes/{date}.md`. Error if missing.
 
 ### Phase 1: Transcribe Meeting Recordings
 
@@ -44,8 +44,8 @@ Detect meeting recordings and transcribe them into meeting notes. Two sub-phases
 
 4. **Check idempotency**: For each group, search for existing meeting notes by **both** `recording:` and `video_file:` fields:
    ```
-   grep -rl 'recording: "{folder}"' "$VAULT/🎙️ Meetings/"
-   grep -rl 'video_file: "{filename}"' "$VAULT/🎙️ Meetings/"
+   grep -rl 'recording: "{folder}"' "$VAULT/Meetings/"
+   grep -rl 'video_file: "{filename}"' "$VAULT/Meetings/"
    ```
    Skip any group that already has a meeting note (matched by either field).
 
@@ -79,7 +79,7 @@ Detect meeting recordings and transcribe them into meeting notes. Two sub-phases
       - Title, Summary, Decisions, Action Items, Open Questions, Transcript
       - Use context from the matched time entry (project, description, participants)
    e. **Present the summary to the user for approval** before writing.
-   f. Create the meeting note at `$VAULT/🎙️ Meetings/{date} {Title}.md` with frontmatter:
+   f. Create the meeting note at `$VAULT/Meetings/{date} {Title}.md` with frontmatter:
       - `recording: "{folder}"` (if Rodecaster audio exists)
       - `audio_url: "{wav_path}"`
       - `video_file: "{video_filename}"` (if screen recording exists)
@@ -95,14 +95,14 @@ Detect meeting recordings and transcribe them into meeting notes. Two sub-phases
 
    **Step 2 — Copy and embed user screenshots**:
    For each found screenshot:
-   - Copy to `$VAULT/🗜️Attachments/{meeting-name}-user-{HH-MM-SS}.png`
+   - Copy to `$VAULT/Attachments/{meeting-name}-user-{HH-MM-SS}.png`
    - Place in the meeting note at the transcript position closest to its `offset_secs`
    - Embed using `![[filename.png]]`
 
    **Step 3 — Supplement with ffmpeg-extracted frames**:
    - If fewer than 3 user screenshots were found, scan the transcript for visual moments (screen sharing, demos, "as you can see", "look at this", code references, topic transitions) and extract additional frames to reach 3-8 total:
      ```bash
-     ffmpeg -ss {secs} -i "{video}" -frames:v 1 -q:v 2 -y "$VAULT/🗜️Attachments/{name}-{MM-SS}.png"
+     ffmpeg -ss {secs} -i "{video}" -frames:v 1 -q:v 2 -y "$VAULT/Attachments/{name}-{MM-SS}.png"
      ```
    - If 3+ user screenshots were found, skip ffmpeg extraction entirely.
    - If no user screenshots at all, fall back entirely to existing ffmpeg extraction behavior (select 3-8 key timestamps).
@@ -136,7 +136,7 @@ Detect meeting recordings and transcribe them into meeting notes. Two sub-phases
     - [[Khov]] - sync with Don - 1 - [[2026-02-18 Khov Sync with Don]]
     ```
 
-11. **Update project note**: If the project has a note in `$VAULT/🗂️ Projects/`, add a `## Meetings` section (or append to existing) with a wikilink to the meeting note.
+11. **Update project note**: If the project has a note in `$VAULT/Projects/`, add a `## Meetings` section (or append to existing) with a wikilink to the meeting note.
 
 **Present the transcription summary to the user for confirmation before writing the meeting note** (consistent with refine's preview-before-applying pattern).
 
@@ -145,9 +145,9 @@ Detect meeting recordings and transcribe them into meeting notes. Two sub-phases
 Scan the daily note for Google Drive audio links and transcribe them into meeting notes.
 
 1. **Scan for audio URLs**: Look for lines containing `drive.google.com/file/d/` in the daily note text.
-2. **Check for existing transcriptions**: For each URL found, search `$VAULT/🎙️ Meetings/` for a note with matching `audio_url` in frontmatter:
+2. **Check for existing transcriptions**: For each URL found, search `$VAULT/Meetings/` for a note with matching `audio_url` in frontmatter:
    ```
-   grep -rl "audio_url:.*{file-id}" "$VAULT/🎙️ Meetings/"
+   grep -rl "audio_url:.*{file-id}" "$VAULT/Meetings/"
    ```
    If a meeting note already exists for this URL, skip it (idempotent).
 3. **Extract context**: From the daily note line containing the URL, infer:
@@ -168,7 +168,7 @@ Scan the daily note for Google Drive audio links and transcribe them into meetin
    d. Capture the JSON output (array of `{start, end, text}` segments).
    e. Generate a meeting note following the format in `skills/transcribe-meeting/SKILL.md` Phase 3.
    f. **Present the summary to the user for approval** before writing.
-   g. Create the meeting note at `$VAULT/🎙️ Meetings/{date} {Title}.md`.
+   g. Create the meeting note at `$VAULT/Meetings/{date} {Title}.md`.
 
 5. **Update daily note**: Replace the Google Drive link in the daily note line:
    ```
@@ -178,26 +178,26 @@ Scan the daily note for Google Drive audio links and transcribe them into meetin
    ```
    - [[Project]] - description - hours - [[{date} {Title}]]
    ```
-6. **Update project note**: If the project has a note in `$VAULT/🗂️ Projects/`, add a `## Meetings` section (or append to existing) with a wikilink to the meeting note.
+6. **Update project note**: If the project has a note in `$VAULT/Projects/`, add a `## Meetings` section (or append to existing) with a wikilink to the meeting note.
 
 **Present the transcription summary to the user for confirmation before writing the meeting note** (consistent with refine's preview-before-applying pattern).
 
 If no recordings are found from either source, skip this phase silently.
 
-#### Phase 1c: Meeting Action Items → Daily Todos
+#### Phase 1c: Meeting Action Items → Project Todos
 
-After all meeting notes are created (from Phase 1a and 1b), extract action items and propose them as daily todos.
+After all meeting notes are created (from Phase 1a and 1b), extract action items and add them to the relevant project pages.
 
 1. **Collect action items**: For each newly created meeting note, read its `## Action Items` section.
 2. **Filter for Olivier's items**: Extract items assigned to Olivier (look for `@Olivier`, `Olivier:`, or unattributed items from 1:1 meetings where Olivier is a participant).
-3. **Map to projects**: Use the meeting frontmatter `project:` field to determine which project section each item belongs to.
-4. **Check for duplicates**: Fuzzy-match each proposed todo against existing todos in the daily note. Skip items that are already present (even if worded slightly differently).
+3. **Map to projects**: Use the meeting frontmatter `project:` field to determine which project page each item belongs to.
+4. **Check for duplicates**: For each project, read the `## Todos` section and fuzzy-match proposed items against existing todos. Skip items that are already present (even if worded slightly differently).
 5. **Present proposed insertions** grouped by project:
-   > From [[2026-02-20 EXSQ Sol 1-1 Sync]]:
-   > - [ ] [[EXSQ]] - Set up Claude Code access for Sol
-   > - [ ] [[EXSQ]] - Explore Figma + GitHub integration feasibility
-6. **If approved**, insert under the matching project heading in the daily note's todos section. If no matching heading exists, create one using `### [[Project]]` format.
-7. **Format**: `- [ ] [[Project]] - task description (from [[Meeting Note]])` with nested sub-items if the action item has sub-tasks.
+   > From [[2026-02-20 EXSQ Sol 1-1 Sync]], adding to project pages:
+   > - **EXSQ.md** `## Todos`: `- [ ] Set up Claude Code access for Sol (from [[2026-02-20 EXSQ Sol 1-1 Sync]])`
+   > - **EXSQ.md** `## Todos`: `- [ ] Explore Figma + GitHub integration feasibility (from [[2026-02-20 EXSQ Sol 1-1 Sync]])`
+6. **If approved**, append each todo under the `## Todos` section of the corresponding project file in `$VAULT/Projects/`.
+7. **Format**: `- [ ] task description (from [[Meeting Note]])` — no `[[Project]]` prefix needed since the todo is already in the project file.
 
 If no new meeting notes were created or no action items found, skip this phase silently.
 
@@ -205,11 +205,11 @@ If no new meeting notes were created or no action items found, skip this phase s
 
 Build a catalog of all known entities so you can match them against the daily note text.
 
-1. **Projects**: List files recursively in `$VAULT/🗂️ Projects/` — extract project names from filenames
-2. **People**: List files in `$VAULT/👤 Persons/` — read each file to extract `aliases` from frontmatter
-3. **Topics**: List files in `$VAULT/📚 Topics/` — extract topic names from filenames
-4. **Coding sessions**: List files in `$VAULT/💻 Coding/` — for cross-reference awareness
-5. **Meetings**: List files in `$VAULT/🎙️ Meetings/` — for cross-reference awareness and to avoid duplicate transcription
+1. **Projects**: List files recursively in `$VAULT/Projects/` — extract project names from filenames
+2. **People**: List files in `$VAULT/Persons/` — read each file to extract `aliases` from frontmatter
+3. **Topics**: List files in `$VAULT/Topics/` — extract topic names from filenames
+4. **Coding sessions**: List files in `$VAULT/Coding/` — for cross-reference awareness
+5. **Meetings**: List files in `$VAULT/Meetings/` — for cross-reference awareness and to avoid duplicate transcription
 
 This gives you the full entity catalog to match against the daily note.
 
@@ -301,7 +301,7 @@ Identify sections that are >~20 lines or contain substantial standalone content 
 
 For each extractable section:
 
-1. **Determine destination**: `🗂️ Projects/` subtree or `📚 Topics/` based on content
+1. **Determine destination**: `Projects/` subtree or `Topics/` based on content
 2. **Create the new note** with proper format:
    ```markdown
    # {Title}
@@ -309,7 +309,7 @@ For each extractable section:
    {Extracted content}
 
    ## Related
-   - [[📅 Daily Notes/{date}]]
+   - [[Daily Notes/{date}]]
    ```
 3. **Replace the section** in the daily note with a brief summary + `[[wikilink]]` to the new note
 
@@ -327,7 +327,7 @@ Want me to create them?
 
 For each confirmed new entity, create the note following vault conventions:
 
-- **Person**: `$VAULT/👤 Persons/{Name}.md`
+- **Person**: `$VAULT/Persons/{Name}.md`
   ```markdown
   ---
   aliases:
@@ -341,7 +341,7 @@ For each confirmed new entity, create the note following vault conventions:
   ## Notes
   ```
 
-- **Project**: `$VAULT/🗂️ Projects/{Name}.md` (or appropriate subdirectory)
+- **Project**: `$VAULT/Projects/{Name}.md` (or appropriate subdirectory)
   ```markdown
   # {Project Name}
 
@@ -350,7 +350,7 @@ For each confirmed new entity, create the note following vault conventions:
   ## Related
   ```
 
-- **Topic**: `$VAULT/📚 Topics/{Name}.md`
+- **Topic**: `$VAULT/Topics/{Name}.md`
   ```markdown
   # {Topic Name}
 
@@ -367,12 +367,12 @@ After creating new entities:
 
 ### Phase 5c: Suggest Todo Completions
 
-Scan unchecked todos against today's content to suggest completions with high confidence.
+Scan unchecked todos on project pages against today's content to suggest completions with high confidence.
 
-1. **Collect unchecked todos** from the daily note (lines matching `- [ ]`).
+1. **Collect unchecked todos** from project pages: read the `## Todos` section of each project file referenced in today's time entries (in `$VAULT/Projects/`). Collect all `- [ ]` lines.
 2. **Build an evidence corpus** from:
    - Meeting note `## Decisions` and `## Action Items` sections (items marked complete)
-   - Coding session summaries and files changed (from `💻 Coding/` notes for this date)
+   - Coding session summaries and files changed (from `Coding/` notes for this date)
    - PR review verdicts (merged PRs mentioned in notes)
    - Daily note prose sections
 3. **Match todos to evidence** — for each unchecked todo, check for HIGH confidence matches only:
@@ -380,16 +380,54 @@ Scan unchecked todos against today's content to suggest completions with high co
    - Explicit completion signals ("merged PR #X", "completed", "done", "shipped", "deployed")
 4. **Present suggestions with evidence**:
    > These todos appear done based on today's work:
-   > - `review PRs` — Evidence: wrote detailed reviews for PRs #650, #636, #571, #469
-   > - `fix vector search` — Evidence: coding session [[2026-02-20--TechnomicIgnite--fix-vector-search]] shows fixes deployed
+   > - `review PRs` (Technomic.md) — Evidence: wrote detailed reviews for PRs #650, #636, #571, #469
+   > - `fix vector search` (Technomic.md) — Evidence: coding session [[2026-02-20--TechnomicIgnite--fix-vector-search]] shows fixes deployed
    > Mark as complete? (✅ 2026-02-20)
-5. **If approved**, check off the todos: change `- [ ]` to `- [x]` and append completion date ` (✅ {date})`.
+5. **If approved**, check off the todos on the project page: change `- [ ]` to `- [x]` and append ` ✅ {date}`. The Tasks plugin completion format ensures they appear in the daily note's "Done today" dataview.
 
 **Rules:**
 - Never suggest more than 5 completions at once
 - Skip anything below ~80% confidence — better to miss one than suggest a false positive
 - Never auto-complete without user approval
 - If no high-confidence matches found, skip this phase silently
+
+### Phase 5d: Freeze "Done today" on Previous Days
+
+When refining a **previous day's** note (not today), convert the "Done today" dataview query into plain markdown so it becomes a permanent historical record.
+
+1. **Check if the target date is before today**. If refining today's note, skip this phase entirely.
+2. **Find the `### Done today` section** and its dataview code block.
+3. **Read completed todos from project pages**: search all project files in `$VAULT/Projects/` for tasks matching `- [x] ... ✅ {target-date}` under `## Todos` sections.
+4. **Build plain markdown** from the results:
+   ```markdown
+   ### Done today
+   - [x] [[Technomic]] - Investigate feature-22 login issue ✅ 2026-03-03
+   - [x] [[AI Upskill]] - Attend Panama Canal meeting ✅ 2026-03-03
+   ```
+   Prefix each item with `[[Project]]` for context since the items originally live on project pages.
+5. **Replace the dataview block** with the plain markdown list.
+6. **Clean up project pages**: Remove the now-frozen `- [x] ... ✅ {target-date}` items from the project files' `## Todos` sections to keep them tidy.
+
+If no completed tasks found for the target date, replace the dataview with an empty section (just the heading).
+
+### Phase 5e: Move Inline Todos to Project Pages
+
+Scan the daily note for `- [ ]` lines written outside of dataview blocks and move them to the appropriate project page.
+
+1. **Find inline todos**: Scan the daily note for lines matching `- [ ] [[Project]] ...` that are NOT inside a dataview code block.
+2. **For each todo**:
+   - Extract the project name from the `[[Project]]` wikilink
+   - Find the corresponding project file in `$VAULT/Projects/`
+   - Check the `## Todos` section for duplicates (fuzzy match)
+3. **Present proposed moves**:
+   > Moving inline todos to project pages:
+   > - `- [ ] [[Technomic]] fix login bug` → Technomic.md `## Todos`
+   > - `- [ ] [[KHov]] test Docker build` → Khov.md `## Todos`
+4. **If approved**:
+   - Append each todo (without the `[[Project]]` prefix) to the project file's `## Todos` section
+   - Remove the original line from the daily note
+
+If no inline todos found, skip this phase silently.
 
 ### Phase 6: Apply & Confirm
 
@@ -407,7 +445,7 @@ Scan unchecked todos against today's content to suggest completions with high co
 After all daily note changes are applied, update each referenced project's note with a summary of today's activity.
 
 1. **Identify projects** from today's time entries in the daily note.
-2. **For each project** with a note in `$VAULT/🗂️ Projects/`:
+2. **For each project** with a note in `$VAULT/Projects/`:
    - Read the existing `## Recent Activity` section (or prepare to create it)
    - Build today's entry: `- **{date}**: {hours}h — {brief summary} (meetings: [[links]], coding: [[links]])`
    - Prune entries older than 7 days from the section
@@ -421,7 +459,7 @@ After all daily note changes are applied, update each referenced project's note 
 Update person notes for anyone who appeared in today's meetings.
 
 1. **Collect participants** from all newly created meeting notes (from frontmatter `participants:` field).
-2. **For each person** with a note in `$VAULT/👤 Persons/`:
+2. **For each person** with a note in `$VAULT/Persons/`:
    - Read the existing `## Recent Interactions` section (or prepare to create it)
    - Build entry: `- **{date}**: [[Meeting Note]] — {topics discussed, action items for/from them}`
    - Prune entries older than 30 days from the section
@@ -435,9 +473,9 @@ If no new meeting notes were created or no participants have vault pages, skip t
 ## Key Rules
 
 - **Never modify time entries** — the bullet list at the top is structured data
-- **Preserve todos** — only improve prose around them
+- **Todos live on project pages** — open todos are under `## Todos` in each project file. Daily notes show them via dataview queries (`### Done today` for completed, `### Open todos` for unchecked). New todos from meetings go to project pages, not daily notes.
 - **Link known entities freely** — no need to ask for entities that already exist
 - **Offer to create unknown entities** — ask before creating new vault pages
 - **Author's voice** — improve clarity without rewriting style
-- **Idempotent** — running twice shouldn't cause issues (don't re-extract already-extracted sections, don't double-link)
+- **Idempotent** — running twice shouldn't cause issues (don't re-extract already-extracted sections, don't double-link, don't re-freeze already-frozen Done today sections)
 - **Show before applying** — always preview changes for user approval

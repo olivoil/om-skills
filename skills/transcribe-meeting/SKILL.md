@@ -55,11 +55,11 @@ If no explicit URL or file path was given:
 4. **Check idempotency** — for each group, search for existing meeting notes:
    - By `recording:` field (for groups with Rodecaster audio):
      ```
-     grep -rl 'recording: "{folder}"' "$VAULT/🎙️ Meetings/"
+     grep -rl 'recording: "{folder}"' "$VAULT/Meetings/"
      ```
    - By `video_file:` field (for groups with screen recordings):
      ```
-     grep -rl 'video_file: "{filename}"' "$VAULT/🎙️ Meetings/"
+     grep -rl 'video_file: "{filename}"' "$VAULT/Meetings/"
      ```
    Skip any group that already has a meeting note.
 
@@ -116,7 +116,7 @@ Format the transcript with timestamps:
 [H:MM:SS] Text of the segment...
 ```
 
-Create the meeting note at `$VAULT/🎙️ Meetings/{date} {Title}.md`:
+Create the meeting note at `$VAULT/Meetings/{date} {Title}.md`:
 
 ```markdown
 ---
@@ -181,7 +181,7 @@ Frontmatter notes:
 
 3. **Extract frames** with ffmpeg:
    ```bash
-   ffmpeg -ss {seconds} -i "{video_path}" -frames:v 1 -q:v 2 -y "$VAULT/🗜️Attachments/{meeting-name}-{MM-SS}.png"
+   ffmpeg -ss {seconds} -i "{video_path}" -frames:v 1 -q:v 2 -y "$VAULT/Attachments/{meeting-name}-{MM-SS}.png"
    ```
    Where `{MM-SS}` is the timestamp in the recording (e.g., `05-30` for 5:30).
 
@@ -233,7 +233,7 @@ Skip this phase if the source was already a Google Drive URL.
 
 ### Phase 5: Link from Daily Note (if applicable)
 
-If a date is known (today by default), check if a daily note exists at `$VAULT/📅 Daily Notes/{date}.md`.
+If a date is known (today by default), check if a daily note exists at `$VAULT/Daily Notes/{date}.md`.
 
 If the daily note contains the Google Drive URL that was transcribed:
 - Replace the `[recording](url)` link with a wikilink to the meeting note: `[[{date} {Title}]]`
@@ -246,7 +246,7 @@ If the daily note doesn't reference this recording but exists:
 
 ### Phase 6: Link from Project Note (if applicable)
 
-If a project was identified, check if the project note exists in `$VAULT/🗂️ Projects/`.
+If a project was identified, check if the project note exists in `$VAULT/Projects/`.
 
 If it exists, look for a `## Meetings` section:
 - If found, append: `- [[{date} {Title}]]`
@@ -264,17 +264,17 @@ Before creating a meeting note, check if one already exists:
 
 **Rodecaster source** — search by `recording` field:
 ```
-grep -rl 'recording: "{folder}"' "$VAULT/🎙️ Meetings/"
+grep -rl 'recording: "{folder}"' "$VAULT/Meetings/"
 ```
 
 **Screen recording source** — search by `video_file` field:
 ```
-grep -rl 'video_file: "{filename}"' "$VAULT/🎙️ Meetings/"
+grep -rl 'video_file: "{filename}"' "$VAULT/Meetings/"
 ```
 
 **Google Drive / local source** — search by `audio_url` field:
 ```
-grep -r "audio_url:" "$VAULT/🎙️ Meetings/" | grep "<url-or-path>"
+grep -r "audio_url:" "$VAULT/Meetings/" | grep "<url-or-path>"
 ```
 
 If found, skip creation and return the existing note path. A group is considered already processed if **either** its `recording` folder or `video_file` filename matches an existing note.

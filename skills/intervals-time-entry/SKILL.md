@@ -32,7 +32,7 @@ These files persist between sessions. If they don't exist, create them from the 
 
 ### Phase 1: Read Notes
 
-Read the daily note for the requested date. Default location: `📅 Daily Notes/YYYY-MM-DD.md`
+Read the daily note for the requested date. Default location: `Daily Notes/YYYY-MM-DD.md`
 
 Look for:
 - Time entries with project/work descriptions
@@ -381,7 +381,7 @@ After verification, write the finalized entries back to the Obsidian daily note 
 
 Read `$OBSIDIAN_VAULT_PATH` from the environment. The daily note is at:
 ```
-$OBSIDIAN_VAULT_PATH/📅 Daily Notes/YYYY-MM-DD.md
+$OBSIDIAN_VAULT_PATH/Daily Notes/YYYY-MM-DD.md
 ```
 
 #### Step 2: Read the Daily Note
@@ -394,8 +394,9 @@ Look for an existing `### Intervals` section:
 - **If found**: Replace the entire section (from `### Intervals` to the next `###` or `---` or end of file) with the updated table
 - **If not found**: Insert the section using this priority:
   1. Before `### Coding Sessions` if it exists
-  2. After `### Todos` (before the next `###` or `---`)
-  3. At the end of the note if neither exists
+  2. After `### Open todos` (before the next `###` or `---`)
+  3. After `### Done today` if `### Open todos` doesn't exist
+  4. At the end of the note if none of the above exist
 
 #### Step 4: Write the Table
 

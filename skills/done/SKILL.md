@@ -35,7 +35,7 @@ If a section has no items, omit it entirely.
 
 ### 3. Write the session file
 
-**Path**: `$OBSIDIAN_VAULT_PATH/💻 Coding/{date}--{repo-name}--{branch}.md`
+**Path**: `$OBSIDIAN_VAULT_PATH/Coding/{date}--{repo-name}--{branch}.md`
 
 Use just the repo name (e.g. `om-skills` from `olivoil/om-skills`). If the branch name contains `/`, replace them with `-` (e.g. `feature/foo` becomes `feature-foo`).
 
@@ -73,7 +73,7 @@ session: {session-id}
 
 ### 4. Link from the daily note
 
-**Path**: `$OBSIDIAN_VAULT_PATH/📅 Daily Notes/{date}.md`
+**Path**: `$OBSIDIAN_VAULT_PATH/Daily Notes/{date}.md`
 
 If the daily note doesn't exist, create it.
 
@@ -82,11 +82,13 @@ Look for an existing `### Coding Sessions` section. If found, append the new lin
 If not found, insert a new `### Coding Sessions` section. The daily note typically has this structure:
 
 1. **Hours list** (lines like `- [[Project]] - task - duration`)
-2. **Todos section** (`### Todos`)
-3. **Coding Sessions** ← insert here
-4. **Other notes sections** (e.g. `### Technomic`, `### Khov`, etc.)
+2. **Done today** (`### Done today` — dataview or plain markdown of completed tasks)
+3. **Open todos** (`### Open todos` — dataview query of unchecked project todos)
+4. **Coding Sessions** ← insert here
+5. **Journal** (`### Journal` — timestamped entries)
+6. **Other notes sections** (e.g. `### [[Technomic]]`, `### [[Khov]]`, etc.)
 
-To find the right insertion point: look for the first `---` horizontal rule or `###` heading that comes **after** the Todos section. Insert the Coding Sessions block just before it. If there's no Todos section, insert before the first `###` heading that isn't Todos. If there are no other sections at all, append to the end.
+To find the right insertion point: look for the first `---` horizontal rule or `###` heading that comes **after** the `### Open todos` section. Insert the Coding Sessions block just before it. If there's no `### Open todos`, look after `### Done today`. If neither exists, insert before the first `###` heading. If there are no other sections at all, append to the end.
 
 The block to insert:
 

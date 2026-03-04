@@ -21,14 +21,14 @@ Generate a weekly summary note from daily notes, aggregating time entries, meeti
 
 ### Phase 2: Collect Data
 
-Read all daily notes for the target week from `$VAULT/📅 Daily Notes/`.
+Read all daily notes for the target week from `$VAULT/Daily Notes/`.
 
 For each day that has a note:
 
 1. **Time entries**: Parse the structured bullet list at the top. Extract project, activity description, and hours for each line.
-2. **Meetings**: Find wikilinks to `🎙️ Meetings/` notes. Read each meeting note to get its summary (first paragraph after `# Title`), project, and participants.
-3. **Coding sessions**: Find wikilinks to `💻 Coding/` notes. Read each to get its summary.
-4. **Todos**: Collect all todo lines (`- [ ]` and `- [x]`). Track which were completed (with date if marked) vs still open.
+2. **Meetings**: Find wikilinks to `Meetings/` notes. Read each meeting note to get its summary (first paragraph after `# Title`), project, and participants.
+3. **Coding sessions**: Find wikilinks to `Coding/` notes. Read each to get its summary.
+4. **Todos**: Collect completed todos from project pages (items matching `- [x] ... ✅ {date}` where the date falls within the target week). Also collect all open todos (`- [ ]`) from the `## Todos` section of each project file in `$VAULT/Projects/`. Track which were completed (with date) vs still open.
 5. **Decisions**: For each meeting note, extract items from `## Decisions` sections.
 
 ### Phase 3: Aggregate
@@ -41,7 +41,7 @@ For each day that has a note:
 
 ### Phase 4: Generate Weekly Note
 
-Build the weekly note at `$VAULT/📅 Weekly Notes/{YYYY}-W{NN}.md`:
+Build the weekly note at `$VAULT/Weekly Notes/{YYYY}-W{NN}.md`:
 
 ```markdown
 # Week of {Monday date}
@@ -67,17 +67,17 @@ Build the weekly note at `$VAULT/📅 Weekly Notes/{YYYY}-W{NN}.md`:
 ## Todos
 - Completed: {count} | Open: {count} | New this week: {count}
 
-### Completed
-- [x] {todo text} (✅ {date})
+### Completed This Week
+- [x] {todo text} ✅ {date} ([[Project]])
 
-### Carried Forward
-- [ ] {todo text}
+### Open
+- [ ] {todo text} ([[Project]])
 ```
 
 ### Phase 5: Review & Write
 
 1. **Present the generated note** to the user for review.
-2. **Create the directory** `$VAULT/📅 Weekly Notes/` if it doesn't exist.
+2. **Create the directory** `$VAULT/Weekly Notes/` if it doesn't exist.
 3. **Check idempotency**: If a note for this week already exists, show a diff of what would change and ask whether to overwrite or skip.
 4. **Write the note** if approved.
 

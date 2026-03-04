@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Claude Code plugin (`om`) — a personal skills collection. Current skills:
 
-- `/intervals-time-entry [date]` — Fill Intervals time entries from daily notes (`📅 Daily Notes/YYYY-MM-DD.md`)
+- `/intervals-time-entry [date]` — Fill Intervals time entries from daily notes (`Daily Notes/YYYY-MM-DD.md`)
 - `/intervals-to-freshbooks [week-start]` — Sync a week of Intervals entries to FreshBooks
 - `/done` — Capture session summary into Obsidian vault and link from daily note
 - `/refine [date]` — Improve daily notes: polish writing, add wikilinks, extract long sections, suggest new entities (also transcribes meeting recordings from Google Drive links)
