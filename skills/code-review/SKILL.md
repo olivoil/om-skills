@@ -68,7 +68,7 @@ Finally, launch a **Haiku agent** to produce a 2-3 sentence summary of the PR's 
 
 ## Phase 3: Analyze Changes (Multi-Agent)
 
-Launch **7 parallel agents** via the Task tool (`subagent_type: "general-purpose"`). Provide each agent with:
+Launch **9 parallel agents** via the Task tool (`subagent_type: "general-purpose"`). Provide each agent with:
 - The full PR diff
 - CLAUDE.md contents (root + directory-level)
 - The PR summary from Phase 2
@@ -93,6 +93,7 @@ Each agent focuses on one review dimension. Instruct each to return a JSON array
 | 6 | Sonnet | **Security** | OWASP top 10: injection (SQL, command, XSS), auth bypass, credential exposure, insecure deserialization, SSRF, path traversal. Check for hardcoded secrets, unsafe `eval`, unvalidated redirects, missing input sanitization. |
 | 7 | Sonnet | **Error handling** | Empty catch blocks, swallowed errors, broad exception handling (`catch(e) {}`), missing error propagation, fallback behavior that hides real problems. Ensure callers get actionable feedback on failures. |
 | 8 | Sonnet | **Performance** | N+1 queries, unnecessary re-renders, memory leaks, O(n²) where O(n) is possible, large/unnecessary imports, missing pagination, unbounded loops or allocations. |
+| 9 | Sonnet | **API design** | Review public interfaces (component props, function signatures, class constructors, config objects). Look for: parameters/props that are just forwarded unchanged to an inner dependency (adds indirection without control — callers should compose directly instead), type mismatches between a declared interface and the API it wraps, dead interface fields that are declared but never consumed, and overly rigid APIs where composition would be more flexible. In frontend components specifically, check whether props-based patterns should instead use slots/children/render props for caller flexibility, and whether slot props or similar patterns could provide guided defaults without forcing them. |
 
 **Each agent must return issues in this exact JSON format:**
 
@@ -111,9 +112,9 @@ Each agent focuses on one review dimension. Instruct each to return a JSON array
 Where:
 - `path` — file path relative to repo root
 - `line` — line number in the new version of the file (from the diff's `+` side)
-- `severity` — one of `critical`, `important`, `suggestion`
+- `severity` — one of `critical`, `important`, `suggestion`, `nitpick`
 - `body` — markdown explanation, including a fix suggestion when possible
-- `category` — one of `claude-md`, `bug`, `history`, `previous-pr`, `code-comment`, `security`, `error-handling`, `performance`
+- `category` — one of `claude-md`, `bug`, `history`, `previous-pr`, `code-comment`, `security`, `error-handling`, `performance`, `api-design`
 
 ## Phase 4: Score & Filter
 
@@ -156,10 +157,15 @@ Build a delta summary for inclusion in the review body.
 All posted comments (both inline and the summary) must read as if written by a human reviewer — natural, conversational, and collegial. Never sound like an automated tool.
 
 **Inline comments:**
+- **Prefer questions over assertions** for non-obvious issues: "what does X do? It doesn't seem to be used?" is better than "X is dead code that is never used". Questions invite dialogue and are less confrontational.
+- **Use "we" language**: "we try to avoid" not "the project guidelines require". Create a team feeling.
+- **Never cite CLAUDE.md or AGENTS.md by name** — just state the practice naturally. Citing rules feels bureaucratic.
+- **Do NOT prefix comments with bold category tags** like `**[Bug]**` or `**[CLAUDE.md]**` — these are an automated-tool tell. Just describe the issue naturally.
+- **One-liner comments are fine** when the point is obvious: "`action.onClick?.()` is cleaner" needs no paragraph.
 - Use hedging language: "may", "might", "worth double-checking", "could be worth", "it looks like"
 - Avoid absolutist phrasing like "this is broken", "this will fail", "you must fix this"
 - Prefer "this might cause X" or "worth confirming whether Y is intentional"
-- Always provide a concrete suggestion or fix when possible (code snippet, alternative approach)
+- Provide a concrete suggestion or fix when possible (code snippet, alternative approach)
 - Suggest adding a test to verify when the issue is uncertain
 - Keep a helpful, non-confrontational tone — you're pointing things out, not issuing mandates
 
@@ -193,13 +199,16 @@ Present all surviving findings to the user, grouped by severity.
 **{title}** | Author: {author} | Changes: +{additions} -{deletions} across {N} files
 
 ### Critical ({count})
-- **src/app.js:42** — [Bug] Description (confidence: 92)
+- **src/app.js:42** — Description (confidence: 92)
 
 ### Important ({count})
-- **src/utils.ts:15** — [CLAUDE.md] Description (confidence: 85)
+- **src/utils.ts:15** — Description (confidence: 85)
 
 ### Suggestions ({count})
-- **src/helper.js:88** — [Performance] Description (confidence: 80)
+- **src/helper.js:88** — Description (confidence: 80)
+
+### Nitpicks ({count})
+- **src/styles.css:12** — Description (confidence: 82)
 
 **Summary:** 1-2 sentence overall assessment of the PR.
 ```
@@ -249,7 +258,7 @@ The comments JSON file format:
   {
     "path": "src/app.js",
     "line": 42,
-    "body": "**[Bug]** Markdown explanation with fix suggestion"
+    "body": "Markdown explanation with fix suggestion"
   }
 ]
 ```
