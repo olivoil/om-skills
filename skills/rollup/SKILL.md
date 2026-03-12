@@ -1,7 +1,7 @@
 ---
-name: rollup
+name: obsidian-weekly-rollup
 description: Generate a weekly summary from daily notes — time totals, meeting highlights, coding sessions, key decisions, and todo progress. Use when the user types /rollup or asks for a weekly summary.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(echo $*)
+allowed-tools: Read, Edit, Bash(obsidian *)
 ---
 
 # Weekly Rollup
@@ -12,24 +12,23 @@ Generate a weekly summary note from daily notes, aggregating time entries, meeti
 
 ### Phase 1: Setup
 
-1. Run `echo $OBSIDIAN_VAULT_PATH` to get the vault root. If empty, ask the user for the path.
+1. Run `obsidian vault info=path` to get the vault root.
 2. Determine the target week:
-   - If an argument is provided (e.g., `/rollup 2026-02-17`), use the week containing that date
+   - If an argument is provided (e.g., `/obsidian-weekly-rollup 2026-02-17`), use the week containing that date
    - Otherwise, use the current week
 3. Calculate Monday–Sunday dates for the target week.
 4. Compute the ISO week number (`YYYY-WNN`) for the output filename.
 
 ### Phase 2: Collect Data
 
-Read all daily notes for the target week from `$VAULT/Daily Notes/`.
+Read all daily notes for the target week.
 
 For each day that has a note:
 
-1. **Time entries**: Parse the structured bullet list at the top. Extract project, activity description, and hours for each line.
-2. **Meetings**: Find wikilinks to `Meetings/` notes. Read each meeting note to get its summary (first paragraph after `# Title`), project, and participants.
-3. **Coding sessions**: Find wikilinks to `Coding/` notes. Read each to get its summary.
-4. **Todos**: Collect completed todos from project pages (items matching `- [x] ... ✅ {date}` where the date falls within the target week). Also collect all open todos (`- [ ]`) from the `## Todos` section of each project file in `$VAULT/Projects/`. Track which were completed (with date) vs still open.
-5. **Decisions**: For each meeting note, extract items from `## Decisions` sections.
+1. **Time entries**: Run `obsidian read path="Daily Notes/{date}.md"` and parse the structured bullet list at the top. Extract project, activity description, and hours for each line.
+2. **Meetings & Coding sessions**: Run `obsidian links file="{date}"` to get outgoing links. Filter for paths starting with `Meetings/` and `Coding/`. Read each linked note to get its summary (first paragraph after `# Title`), project, and participants.
+3. **Todos**: Run `obsidian tasks todo` to get all open todos from project files. Run `obsidian tasks done` and filter for items where the completion date falls within the target week. Track which were completed (with date) vs still open.
+4. **Decisions**: For each meeting note, extract items from `## Decisions` sections.
 
 ### Phase 3: Aggregate
 
@@ -41,7 +40,7 @@ For each day that has a note:
 
 ### Phase 4: Generate Weekly Note
 
-Build the weekly note at `$VAULT/Weekly Notes/{YYYY}-W{NN}.md`:
+Build the weekly note content, then create it with `obsidian create path="Weekly Notes/{YYYY}-W{NN}.md" content="{content}"`. If the file already exists and overwrite is approved, add the `overwrite` flag:
 
 ```markdown
 # Week of {Monday date}
@@ -77,9 +76,8 @@ Build the weekly note at `$VAULT/Weekly Notes/{YYYY}-W{NN}.md`:
 ### Phase 5: Review & Write
 
 1. **Present the generated note** to the user for review.
-2. **Create the directory** `$VAULT/Weekly Notes/` if it doesn't exist.
-3. **Check idempotency**: If a note for this week already exists, show a diff of what would change and ask whether to overwrite or skip.
-4. **Write the note** if approved.
+2. **Check idempotency**: If a note for this week already exists (check with `obsidian files folder="Weekly Notes"`), show a diff of what would change and ask whether to overwrite or skip.
+3. **Write the note** if approved using `obsidian create` (with `overwrite` if replacing).
 
 ## Key Rules
 
