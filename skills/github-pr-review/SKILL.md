@@ -1,7 +1,7 @@
 ---
-name: code-review
+name: github-pr-review
 description: Review a PR and post findings as inline comments to GitHub. Shows all feedback for approval before posting.
-allowed-tools: Read, Glob, Grep, Bash(gh *), Bash(git *), Bash(bash skills/code-review/scripts/*)
+allowed-tools: Read, Glob, Grep, Bash(gh *), Bash(git *), Bash(bash skills/github-pr-review/scripts/*)
 ---
 
 # Code Review
@@ -239,7 +239,7 @@ If the user chose Cancel, stop here.
 Otherwise, write the comments array to a temporary JSON file and run:
 
 ```bash
-bash skills/code-review/scripts/post-github-review.sh \
+bash skills/github-pr-review/scripts/post-github-review.sh \
   --owner "{owner}" \
   --repo "{repo}" \
   --pr {number} \

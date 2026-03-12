@@ -22,21 +22,21 @@ There is no build system, test suite, or linter. The project is pure JavaScript 
 
 ```
 skills/
-├── done/                       # Session summary → Obsidian vault (obsidian-session-summary)
+├── obsidian-session-summary/    # Session summary → Obsidian vault
+│   └── SKILL.md                # Workflow definition
+├── obsidian-refine-daily-note/ # Daily note improvement (wikilinks, extraction)
+│   └── SKILL.md                # Workflow definition (6 phases)
+├── obsidian-weekly-rollup/     # Weekly summary from daily notes
+│   └── SKILL.md                # Workflow definition
+├── obsidian-transcribe-meeting/# Meeting recording → structured notes
+│   ├── SKILL.md                # Workflow definition (standalone)
+│   └── scripts/                # download-gdrive.sh, transcribe.sh
+├── github-pr-review/           # PR review → GitHub comments
 │   └── SKILL.md                # Workflow definition
 ├── intervals-time-entry/       # Notes → Intervals (browser automation)
 │   ├── SKILL.md                # Workflow definition (8 phases + GitHub/Outlook correlation)
 │   ├── references/             # Mapping files (project, worktype, github, outlook, people)
 │   └── scripts/                # Browser JS + GitHub fetch bash script
-├── refine/                     # Daily note improvement (obsidian-refine-daily-note)
-│   └── SKILL.md                # Workflow definition (6 phases)
-├── transcribe-meeting/         # Meeting recording → structured notes (obsidian-transcribe-meeting)
-│   ├── SKILL.md                # Workflow definition (standalone)
-│   └── scripts/                # download-gdrive.sh, transcribe.sh
-├── rollup/                     # Weekly summary from daily notes (obsidian-weekly-rollup)
-│   └── SKILL.md                # Workflow definition
-├── code-review/                # PR review → GitHub comments (github-pr-review)
-│   └── SKILL.md                # Workflow definition
 └── intervals-to-freshbooks/    # Intervals → FreshBooks (API + browser)
     ├── SKILL.md                # Workflow definition (5 phases)
     ├── references/             # Intervals→FreshBooks project mappings

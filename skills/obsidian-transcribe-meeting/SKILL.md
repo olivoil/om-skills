@@ -1,7 +1,7 @@
 ---
 name: obsidian-transcribe-meeting
 description: Transcribe a meeting recording from the Rodecaster SD card, Google Drive, or a local file. Creates a meeting note with summary, decisions, and action items, plus an MP3 archive. Use when the user types /transcribe-meeting or asks to transcribe a recording.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(bash skills/transcribe-meeting/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls /tmp/meeting*), Bash(ls /run/media/*), Bash(youtubeuploader *), Bash(ls ~/Videos/*), Bash(bc *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(bash skills/obsidian-transcribe-meeting/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls /tmp/meeting*), Bash(ls /run/media/*), Bash(youtubeuploader *), Bash(ls ~/Videos/*), Bash(bc *)
 ---
 
 # Transcribe Meeting
@@ -36,20 +36,20 @@ If no explicit URL or file path was given:
 
 1. **Discover screen recordings**:
    ```bash
-   bash skills/transcribe-meeting/scripts/find-screenrecordings.sh "{date}"
+   bash skills/obsidian-transcribe-meeting/scripts/find-screenrecordings.sh "{date}"
    ```
    Save the JSON output to a temp file (e.g., `/tmp/screenrecs-{date}.json`).
 
 2. **Discover Rodecaster recordings**:
    ```bash
-   RODECASTER_MOUNT=/run/media/olivier/RodeCaster/RODECaster bash skills/transcribe-meeting/scripts/find-recordings.sh "{date}"
+   RODECASTER_MOUNT=/run/media/olivier/RodeCaster/RODECaster bash skills/obsidian-transcribe-meeting/scripts/find-recordings.sh "{date}"
    ```
    If `RODECASTER_MOUNT` fails (directory not found), fall back without it to try auto-detect.
    Save the JSON output to a temp file (e.g., `/tmp/rodecaster-{date}.json`).
 
 3. **Match recordings** by time overlap:
    ```bash
-   bash skills/transcribe-meeting/scripts/match-recordings.sh /tmp/screenrecs-{date}.json /tmp/rodecaster-{date}.json
+   bash skills/obsidian-transcribe-meeting/scripts/match-recordings.sh /tmp/screenrecs-{date}.json /tmp/rodecaster-{date}.json
    ```
    This produces groups with `mode` (omarchy+rodecaster, omarchy-only, rodecaster-only), `video`, `audio`, and `transcribe_from` fields.
 
@@ -73,7 +73,7 @@ If no explicit URL or file path was given:
    - `omarchy+rodecaster` → audio = Rodecaster WAV (the `audio.path` field)
    - `omarchy-only` → extract audio from screen recording:
      ```bash
-     bash skills/transcribe-meeting/scripts/extract-audio.sh "{video.path}"
+     bash skills/obsidian-transcribe-meeting/scripts/extract-audio.sh "{video.path}"
      ```
      Capture the WAV path from stdout.
    - `rodecaster-only` → audio = Rodecaster WAV (the `audio.path` field)
@@ -84,7 +84,7 @@ If the input contains `drive.google.com`:
 
 1. Run the download script:
    ```bash
-   bash skills/transcribe-meeting/scripts/download-gdrive.sh "<url>"
+   bash skills/obsidian-transcribe-meeting/scripts/download-gdrive.sh "<url>"
    ```
 2. Capture the output — it's the local file path.
 3. Check idempotency via `audio_url` field (see Idempotency section).
@@ -98,7 +98,7 @@ If the input is a local file path, use it directly.
 1. Determine the engine: check `echo $OBSIDIAN_WHISPER_ENGINE` — defaults to `openai` if unset.
 2. Run the transcription script:
    ```bash
-   bash skills/transcribe-meeting/scripts/transcribe.sh "<audio-file>" "<engine>"
+   bash skills/obsidian-transcribe-meeting/scripts/transcribe.sh "<audio-file>" "<engine>"
    ```
 3. Capture the JSON output — an array of `{start, end, text}` segments.
 
@@ -173,7 +173,7 @@ Applies to **all recording modes** (omarchy+rodecaster, omarchy-only, and rodeca
 
 **Step 1 — Find user screenshots taken during the meeting**:
 ```bash
-bash skills/transcribe-meeting/scripts/find-screenshots.sh "{date}" "{start_time}" "{duration_secs}"
+bash skills/obsidian-transcribe-meeting/scripts/find-screenshots.sh "{date}" "{start_time}" "{duration_secs}"
 ```
 This returns a JSON array of screenshots from `~/Pictures/` (or `$OMARCHY_SCREENSHOT_DIR` / `$XDG_PICTURES_DIR`) taken during the meeting timeframe (±5 min buffer). Each entry has `path`, `timestamp`, and `offset_secs`. This script has no video dependency — it matches screenshot timestamps against the meeting time window.
 
@@ -199,24 +199,24 @@ After the meeting note is created, compress audio, merge video if applicable, an
 
 **4a. Compress WAV → MP3** (all modes with audio):
 ```bash
-bash skills/transcribe-meeting/scripts/compress.sh "<wav-file>"
+bash skills/obsidian-transcribe-meeting/scripts/compress.sh "<wav-file>"
 ```
 
 **4b. Upload MP3 to Google Drive** (all modes with audio):
 ```bash
-bash skills/transcribe-meeting/scripts/upload-gdrive.sh "<mp3-file>"
+bash skills/obsidian-transcribe-meeting/scripts/upload-gdrive.sh "<mp3-file>"
 ```
 Capture the Google Drive URL from stdout. Update `audio_url` in the meeting note frontmatter.
 
 **4c. Merge video + Rodecaster audio** (omarchy+rodecaster mode only):
 ```bash
-bash skills/transcribe-meeting/scripts/merge-av.sh "<video-file>" "<rodecaster-wav>"
+bash skills/obsidian-transcribe-meeting/scripts/merge-av.sh "<video-file>" "<rodecaster-wav>"
 ```
 Capture the merged MP4 path from stdout. This replaces the screen recording's audio with the higher-quality Rodecaster audio.
 
 **4d. Upload video to YouTube** (omarchy+rodecaster and omarchy-only modes):
 ```bash
-bash skills/transcribe-meeting/scripts/upload-youtube.sh "<video-file>" "<meeting-title>" "<summary>" "<date>"
+bash skills/obsidian-transcribe-meeting/scripts/upload-youtube.sh "<video-file>" "<meeting-title>" "<summary>" "<date>"
 ```
 - For `omarchy+rodecaster`: upload the **merged** MP4 (from step 4c)
 - For `omarchy-only`: upload the **original** screen recording MP4
