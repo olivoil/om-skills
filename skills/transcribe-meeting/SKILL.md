@@ -1,7 +1,7 @@
 ---
-name: transcribe-meeting
+name: obsidian-transcribe-meeting
 description: Transcribe a meeting recording from the Rodecaster SD card, Google Drive, or a local file. Creates a meeting note with summary, decisions, and action items, plus an MP3 archive. Use when the user types /transcribe-meeting or asks to transcribe a recording.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(echo $*), Bash(bash skills/transcribe-meeting/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls /tmp/meeting*), Bash(ls /run/media/*), Bash(youtubeuploader *), Bash(ls ~/Videos/*), Bash(bc *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(bash skills/transcribe-meeting/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls /tmp/meeting*), Bash(ls /run/media/*), Bash(youtubeuploader *), Bash(ls ~/Videos/*), Bash(bc *)
 ---
 
 # Transcribe Meeting
@@ -22,7 +22,7 @@ Recording modes:
 
 ### Phase 0: Setup
 
-1. Run `echo $OBSIDIAN_VAULT_PATH` to get the vault root. If empty, ask the user for the path.
+1. Run `obsidian vault info=path` to get the vault root.
 2. Determine the target date: use the argument if a date is provided, otherwise use today.
 3. Determine context: if the user provides additional info (project name, participants, meeting topic), note it. Otherwise, these will be inferred from any surrounding daily note context or left generic.
 
@@ -56,11 +56,11 @@ If no explicit URL or file path was given:
 4. **Check idempotency** — for each group, search for existing meeting notes:
    - By `recording:` field (for groups with Rodecaster audio):
      ```
-     grep -rl 'recording: "{folder}"' "$VAULT/Meetings/"
+     obsidian search query='recording: "{folder}"' path=Meetings
      ```
    - By `video_file:` field (for groups with screen recordings):
      ```
-     grep -rl 'video_file: "{filename}"' "$VAULT/Meetings/"
+     obsidian search query='video_file: "{filename}"' path=Meetings
      ```
    Skip any group that already has a meeting note.
 
@@ -117,7 +117,7 @@ Format the transcript with timestamps:
 [H:MM:SS] Text of the segment...
 ```
 
-Create the meeting note at `$VAULT/Meetings/{date} {Title}.md`:
+Create the meeting note with `obsidian create path="Meetings/{date} {Title}.md" content="{formatted content}"`:
 
 ```markdown
 ---
@@ -169,33 +169,29 @@ Frontmatter notes:
 
 ### Phase 3.5: Extract Key Screenshots
 
-**Only applies when a video recording exists** (omarchy+rodecaster or omarchy-only modes).
+Applies to **all recording modes** (omarchy+rodecaster, omarchy-only, and rodecaster-only).
 
-1. **Scan transcript for visual moments** — look for indicators like:
-   - Screen sharing or demo segments
-   - Phrases: "as you can see", "look at this", "let me show you", "on the screen"
-   - Code references or technical discussions with visual context
-   - Topic transitions (good for section dividers)
-   - Architecture diagrams, UI walkthroughs, slide presentations
+**Step 1 — Find user screenshots taken during the meeting**:
+```bash
+bash skills/transcribe-meeting/scripts/find-screenshots.sh "{date}" "{start_time}" "{duration_secs}"
+```
+This returns a JSON array of screenshots from `~/Pictures/` (or `$OMARCHY_SCREENSHOT_DIR` / `$XDG_PICTURES_DIR`) taken during the meeting timeframe (±5 min buffer). Each entry has `path`, `timestamp`, and `offset_secs`. This script has no video dependency — it matches screenshot timestamps against the meeting time window.
 
-2. **Select 3-8 key timestamps** — spread across the meeting, prioritizing moments with unique visual content. Avoid extracting frames too close together (at least 2 minutes apart).
+**Step 2 — Copy and embed user screenshots**:
+For each found screenshot:
+- Copy to `$VAULT/Attachments/{meeting-name}-user-{HH-MM-SS}.png`
+- Place in the meeting note at the transcript position closest to its `offset_secs`
+- Embed using `![[filename.png]]`
 
-3. **Extract frames** with ffmpeg:
-   ```bash
-   ffmpeg -ss {seconds} -i "{video_path}" -frames:v 1 -q:v 2 -y "$VAULT/Attachments/{meeting-name}-{MM-SS}.png"
-   ```
-   Where `{MM-SS}` is the timestamp in the recording (e.g., `05-30` for 5:30).
+**Step 3 — Supplement with ffmpeg-extracted frames** (only when video exists):
+This step only applies to `omarchy+rodecaster` and `omarchy-only` modes. Skip entirely for `rodecaster-only`.
+- If fewer than 3 user screenshots were found, scan the transcript for visual moments (screen sharing, demos, "as you can see", "look at this", code references, topic transitions) and extract additional frames to reach 3-8 total:
+  ```bash
+  ffmpeg -ss {secs} -i "{video}" -frames:v 1 -q:v 2 -y "$VAULT/Attachments/{name}-{MM-SS}.png"
+  ```
+- If 3+ user screenshots were found, skip ffmpeg extraction entirely.
 
-4. **Embed in meeting note** — edit the meeting note to insert screenshots at the corresponding positions in the transcript:
-   ```markdown
-   [5:30] Discussion about the new dashboard layout...
-
-   ![[Meeting Name-05-30.png]]
-
-   [5:45] Next topic...
-   ```
-
-5. **Skip this phase** if no video file exists or if the video file is inaccessible.
+Embed all screenshots at corresponding transcript positions using `![[filename.png]]`.
 
 ### Phase 4: Post-Process & Upload
 
@@ -234,7 +230,7 @@ Skip this phase if the source was already a Google Drive URL.
 
 ### Phase 5: Link from Daily Note (if applicable)
 
-If a date is known (today by default), check if a daily note exists at `$VAULT/Daily Notes/{date}.md`.
+If a date is known (today by default), run `obsidian daily:read` to check if a daily note exists.
 
 If the daily note contains the Google Drive URL that was transcribed:
 - Replace the `[recording](url)` link with a wikilink to the meeting note: `[[{date} {Title}]]`
@@ -250,8 +246,8 @@ If the daily note doesn't reference this recording but exists:
 If a project was identified, check if the project note exists in `$VAULT/Projects/`.
 
 If it exists, look for a `## Meetings` section:
-- If found, append: `- [[{date} {Title}]]`
-- If not found, add a `## Meetings` section with the link
+- If found, use `obsidian append path="Projects/{project}.md" content="- [[{date} {Title}]]"` to add the link
+- If not found, use `Read` + `Edit` to add a `## Meetings` section with the link
 
 ## Timestamp Formatting
 
@@ -265,20 +261,20 @@ Before creating a meeting note, check if one already exists:
 
 **Rodecaster source** — search by `recording` field:
 ```
-grep -rl 'recording: "{folder}"' "$VAULT/Meetings/"
+obsidian search query='recording: "{folder}"' path=Meetings
 ```
 
 **Screen recording source** — search by `video_file` field:
 ```
-grep -rl 'video_file: "{filename}"' "$VAULT/Meetings/"
+obsidian search query='video_file: "{filename}"' path=Meetings
 ```
 
 **Google Drive / local source** — search by `audio_url` field:
 ```
-grep -r "audio_url:" "$VAULT/Meetings/" | grep "<url-or-path>"
+obsidian search query='audio_url: "{url-or-path}"' path=Meetings
 ```
 
-If found, skip creation and return the existing note path. A group is considered already processed if **either** its `recording` folder or `video_file` filename matches an existing note.
+If any search returns results, skip creation and return the existing note path. A group is considered already processed if **either** its `recording` folder or `video_file` filename matches an existing note.
 
 ## Error Handling
 
