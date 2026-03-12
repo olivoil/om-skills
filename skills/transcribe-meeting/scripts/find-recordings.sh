@@ -29,9 +29,22 @@ if [ -n "$RODECASTER_MOUNT" ]; then
         exit 1
     fi
 else
-    MOUNTS=(/run/media/*/*/RODECaster/)
-    if [ ${#MOUNTS[@]} -eq 0 ] || [ ! -d "${MOUNTS[0]}" ]; then
-        echo "Error: No RODECaster SD card found at /run/media/*/*/RODECaster/" >&2
+    # Check both SD card mount (via card reader) and Rodecaster transfer mode (via USB).
+    # Use find(1) for discovery since bash glob expansion can silently fail in
+    # sandboxed environments (e.g. Claude Code sandbox restricts /run/media).
+    MOUNTS=()
+    if [ -d /run/media/ ]; then
+        while IFS= read -r -d '' m; do
+            MOUNTS+=("$m")
+        done < <(find /run/media/ -maxdepth 3 -type d -name "RODECaster" -print0 2>/dev/null)
+        # Deduplicate
+        if [ ${#MOUNTS[@]} -gt 0 ]; then
+            MOUNTS=($(printf '%s\n' "${MOUNTS[@]}" | sort -u))
+        fi
+    fi
+    if [ ${#MOUNTS[@]} -eq 0 ]; then
+        echo "Error: No RODECaster SD card found. Set RODECASTER_MOUNT=/path/to/RODECaster if auto-detect fails." >&2
+        echo "Checked: /run/media/*/*/RODECaster/ and /run/media/*/RodeCaster/RODECaster/" >&2
         exit 1
     fi
     if [ ${#MOUNTS[@]} -gt 1 ]; then

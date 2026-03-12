@@ -42,8 +42,9 @@ If no explicit URL or file path was given:
 
 2. **Discover Rodecaster recordings**:
    ```bash
-   bash skills/transcribe-meeting/scripts/find-recordings.sh "{date}"
+   RODECASTER_MOUNT=/run/media/olivier/RodeCaster/RODECaster bash skills/transcribe-meeting/scripts/find-recordings.sh "{date}"
    ```
+   If `RODECASTER_MOUNT` fails (directory not found), fall back without it to try auto-detect.
    Save the JSON output to a temp file (e.g., `/tmp/rodecaster-{date}.json`).
 
 3. **Match recordings** by time overlap:

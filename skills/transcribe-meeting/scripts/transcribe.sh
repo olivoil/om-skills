@@ -26,8 +26,10 @@ if [ ! -f "$AUDIO_FILE" ]; then
 fi
 
 # --- Preprocessing: convert to WAV 16kHz mono ---
+# Use hash of full path to avoid collisions (e.g. multiple "Stereo Mix.wav" from different recordings)
 BASENAME=$(basename "$AUDIO_FILE" | sed 's/\.[^.]*$//')
-WAV_FILE="/tmp/${BASENAME}_16k.wav"
+PATH_HASH=$(echo -n "$AUDIO_FILE" | md5sum | cut -c1-8)
+WAV_FILE="/tmp/${BASENAME}_${PATH_HASH}_16k.wav"
 
 if [ ! -f "$WAV_FILE" ]; then
     echo "Preprocessing: converting to WAV 16kHz mono..." >&2

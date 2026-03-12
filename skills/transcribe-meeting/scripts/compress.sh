@@ -22,8 +22,10 @@ fi
 
 mkdir -p "$OUTPUT_DIR"
 
+# Use hash of full path to avoid collisions (e.g. multiple "Stereo Mix.wav" from different recordings)
 BASENAME=$(basename "$WAV" .wav)
-MP3="${OUTPUT_DIR}/${BASENAME}.mp3"
+PATH_HASH=$(echo -n "$WAV" | md5sum | cut -c1-8)
+MP3="${OUTPUT_DIR}/${BASENAME}_${PATH_HASH}.mp3"
 
 # Idempotent: skip if MP3 exists and is newer than WAV
 if [ -f "$MP3" ] && [ "$MP3" -nt "$WAV" ]; then
