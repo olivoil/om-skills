@@ -1,7 +1,7 @@
 ---
-name: done
+name: obsidian-session-summary
 description: Capture a session summary (decisions, questions, follow-ups) into the Obsidian vault and link it from the daily note. Use when the user types /done or asks to wrap up a coding session.
-allowed-tools: Read, Write, Edit, Bash(git *)
+allowed-tools: Read, Edit, Bash(git *), Bash(obsidian *)
 ---
 
 # Session Summary
@@ -12,7 +12,7 @@ Capture the key outcomes of this Claude Code session into a markdown file in the
 
 ### 0. Resolve vault path
 
-Run `echo $OBSIDIAN_VAULT_PATH` to get the Obsidian vault root directory. If empty, ask the user for the path before proceeding.
+Run `obsidian vault info=path` to get the Obsidian vault root directory.
 
 ### 1. Gather metadata
 
@@ -35,11 +35,13 @@ If a section has no items, omit it entirely.
 
 ### 3. Write the session file
 
-**Path**: `$OBSIDIAN_VAULT_PATH/Coding/{date}--{repo-name}--{branch}.md`
+**Path**: `Coding/{date}--{repo-name}--{branch}.md`
 
 Use just the repo name (e.g. `om-skills` from `olivoil/om-skills`). If the branch name contains `/`, replace them with `-` (e.g. `feature/foo` becomes `feature-foo`).
 
-If a file already exists at that path (same branch, same day), append a counter: `{date}--{repo-name}--{branch}--2.md`, `{date}--{repo-name}--{branch}--3.md`, etc.
+Use `obsidian files folder=Coding` to check for existing files with the same date-repo-branch prefix. If a file already exists at that path (same branch, same day), append a counter: `{date}--{repo-name}--{branch}--2.md`, `{date}--{repo-name}--{branch}--3.md`, etc.
+
+Create the file with `obsidian create path="Coding/{filename}.md" content="{formatted content}"`.
 
 **Format**:
 
@@ -73,9 +75,9 @@ session: {session-id}
 
 ### 4. Link from the daily note
 
-**Path**: `$OBSIDIAN_VAULT_PATH/Daily Notes/{date}.md`
+Run `obsidian daily:read` to get the daily note content.
 
-If the daily note doesn't exist, create it.
+If the daily note doesn't exist, create it with `obsidian create path="Daily Notes/{date}.md" content="---\ndate: {date}\n---"`.
 
 Look for an existing `### Coding Sessions` section. If found, append the new link under it.
 
