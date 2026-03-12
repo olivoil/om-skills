@@ -1,7 +1,7 @@
 ---
-name: refine
+name: obsidian-refine-daily-note
 description: Improve Obsidian daily notes — polish writing, add missing wikilinks, extract long sections into dedicated notes, suggest new vault entities, and summarize Slack activity. Use when the user types /refine or asks to clean up daily notes.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(echo $*), Bash(bash skills/transcribe-meeting/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls /tmp/meeting*), Bash(ls /run/media/*), Bash(youtubeuploader *), Bash(ls ~/Videos/*), Bash(ls ~/Pictures/*), Bash(bc *), ToolSearch
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(qmd *), ToolSearch
 ---
 
 # Refine Daily Notes
@@ -12,208 +12,24 @@ Improve an Obsidian daily note by polishing prose, adding missing wikilinks to m
 
 ### Phase 0: Setup
 
-1. Run `echo $OBSIDIAN_VAULT_PATH` to get the vault root. If empty, ask the user for the path.
-2. Determine the target date: use the argument if provided (e.g., `/refine 2026-02-14`), otherwise use today.
-3. Read the daily note at `$VAULT/Daily Notes/{date}.md`. Error if missing.
+1. Run `obsidian vault info=path` to get the vault root.
+2. Determine the target date: use the argument if provided (e.g., `/obsidian-refine-daily-note 2026-02-14`), otherwise use today.
+3. Run `obsidian daily:read` to get today's daily note content. If a different date, use `obsidian read path="Daily Notes/{date}.md"`. Error if missing.
 
-### Phase 1: Transcribe Meeting Recordings
-
-Detect meeting recordings and transcribe them into meeting notes. Two sub-phases run in order: SD card auto-detect (primary), then Google Drive URL scan (fallback).
-
-#### Phase 1a: Recording Detection & Matching (Primary)
-
-1. **Discover screen recordings**:
-   ```bash
-   bash skills/transcribe-meeting/scripts/find-screenrecordings.sh "{date}"
-   ```
-   Save JSON output to `/tmp/screenrecs-{date}.json`. If no screen recordings found, use empty array `[]`.
-
-2. **Discover Rodecaster recordings**:
-   ```bash
-   bash skills/transcribe-meeting/scripts/find-recordings.sh "{date}"
-   ```
-   Save JSON output to `/tmp/rodecaster-{date}.json`. If SD card not mounted or no recordings found, use empty array `[]`.
-
-3. **Match recordings** by time overlap:
-   ```bash
-   bash skills/transcribe-meeting/scripts/match-recordings.sh /tmp/screenrecs-{date}.json /tmp/rodecaster-{date}.json
-   ```
-   This produces groups with `mode`, `video`, `audio`, and `transcribe_from` fields.
-
-   If both arrays are empty, skip to Phase 1b silently.
-
-4. **Check idempotency**: For each group, search for existing meeting notes by **both** `recording:` and `video_file:` fields:
-   ```
-   grep -rl 'recording: "{folder}"' "$VAULT/Meetings/"
-   grep -rl 'video_file: "{filename}"' "$VAULT/Meetings/"
-   ```
-   Skip any group that already has a meeting note (matched by either field).
-
-5. **Match to time entries**: For each new group, scan the daily note time entries for meeting-like entries. Use the recording start time and duration to correlate. Present to the user with mode info:
-   > Found 2 recording groups:
-   > 1. **omarchy-only**: screen recording from 09:36 (30 min) — no Rodecaster match. Match to `[[EWG]] - team standup - 0.5`?
-   > 2. **omarchy+rodecaster**: screen recording from 11:02 + Rodecaster 10 (51 min). Match to `[[Khov]] - sync with Don - 1`?
-
-6. **Extract context** from the matched time entry:
-   - **Project**: The wikilinked project name (e.g., `[[Khov]]`)
-   - **Description**: The task/meeting description (e.g., "sync with Don")
-   - **Participants**: Any names mentioned in the line or surrounding context
-
-7. **Determine audio source** for transcription:
-   - `omarchy+rodecaster` → audio = Rodecaster WAV (`audio.path`)
-   - `omarchy-only` → extract audio from screen recording:
-     ```bash
-     bash skills/transcribe-meeting/scripts/extract-audio.sh "{video.path}"
-     ```
-   - `rodecaster-only` → audio = Rodecaster WAV (`audio.path`)
-
-8. **Transcribe inline** (do NOT use Task/sub-agents — they lack bash permissions). For each new group:
-
-   a. Determine the engine: `echo $OBSIDIAN_WHISPER_ENGINE` (defaults to `openai` if unset).
-   b. Run transcription directly:
-      ```bash
-      bash skills/transcribe-meeting/scripts/transcribe.sh "{wav_path}" "{engine}"
-      ```
-   c. Capture the JSON output (array of `{start, end, text}` segments).
-   d. Generate a meeting note following the format in `skills/transcribe-meeting/SKILL.md` Phase 3:
-      - Title, Summary, Decisions, Action Items, Open Questions, Transcript
-      - Use context from the matched time entry (project, description, participants)
-   e. **Present the summary to the user for approval** before writing.
-   f. Create the meeting note at `$VAULT/Meetings/{date} {Title}.md` with frontmatter:
-      - `recording: "{folder}"` (if Rodecaster audio exists)
-      - `audio_url: "{wav_path}"`
-      - `video_file: "{video_filename}"` (if screen recording exists)
-      - `recording_mode: "{mode}"`
-
-   **Phase 3.5: Extract Key Screenshots** (only when video recording exists):
-
-   **Step 1 — Find user screenshots taken during the meeting**:
-   ```bash
-   bash skills/transcribe-meeting/scripts/find-screenshots.sh "{date}" "{start_time}" "{duration_secs}"
-   ```
-   This returns a JSON array of screenshots from `~/Pictures/` (or `$OMARCHY_SCREENSHOT_DIR` / `$XDG_PICTURES_DIR`) taken during the meeting timeframe (±5 min buffer). Each entry has `path`, `timestamp`, and `offset_secs`.
-
-   **Step 2 — Copy and embed user screenshots**:
-   For each found screenshot:
-   - Copy to `$VAULT/Attachments/{meeting-name}-user-{HH-MM-SS}.png`
-   - Place in the meeting note at the transcript position closest to its `offset_secs`
-   - Embed using `![[filename.png]]`
-
-   **Step 3 — Supplement with ffmpeg-extracted frames**:
-   - If fewer than 3 user screenshots were found, scan the transcript for visual moments (screen sharing, demos, "as you can see", "look at this", code references, topic transitions) and extract additional frames to reach 3-8 total:
-     ```bash
-     ffmpeg -ss {secs} -i "{video}" -frames:v 1 -q:v 2 -y "$VAULT/Attachments/{name}-{MM-SS}.png"
-     ```
-   - If 3+ user screenshots were found, skip ffmpeg extraction entirely.
-   - If no user screenshots at all, fall back entirely to existing ffmpeg extraction behavior (select 3-8 key timestamps).
-
-   Embed all screenshots at corresponding transcript positions using `![[filename.png]]`.
-
-9. **Post-process & upload**: After transcription completes for each group:
-
-   a. **Compress WAV → MP3** and **upload to Google Drive**:
-      ```bash
-      bash skills/transcribe-meeting/scripts/compress.sh "{wav_path}"
-      bash skills/transcribe-meeting/scripts/upload-gdrive.sh "/tmp/meeting-archive/{filename}.mp3"
-      ```
-      Capture the Google Drive URL. Update `audio_url` in the meeting note.
-
-   b. **Merge video + audio** (omarchy+rodecaster only):
-      ```bash
-      bash skills/transcribe-meeting/scripts/merge-av.sh "{video.path}" "{audio.path}"
-      ```
-
-   c. **Upload to YouTube** (omarchy+rodecaster and omarchy-only):
-      ```bash
-      bash skills/transcribe-meeting/scripts/upload-youtube.sh "{video_file}" "{meeting_title}" "{summary}" "{date}"
-      ```
-      - For `omarchy+rodecaster`: upload the **merged** MP4
-      - For `omarchy-only`: upload the **original** screen recording MP4
-      - Capture the YouTube URL. Update `video_url` in the meeting note.
-
-10. **Update daily note**: Append a wikilink to the matched time entry line:
-    ```
-    - [[Khov]] - sync with Don - 1 - [[2026-02-18 Khov Sync with Don]]
-    ```
-
-11. **Update project note**: If the project has a note in `$VAULT/Projects/`, add a `## Meetings` section (or append to existing) with a wikilink to the meeting note.
-
-**Present the transcription summary to the user for confirmation before writing the meeting note** (consistent with refine's preview-before-applying pattern).
-
-#### Phase 1b: Google Drive URL Detection (Fallback)
-
-Scan the daily note for Google Drive audio links and transcribe them into meeting notes.
-
-1. **Scan for audio URLs**: Look for lines containing `drive.google.com/file/d/` in the daily note text.
-2. **Check for existing transcriptions**: For each URL found, search `$VAULT/Meetings/` for a note with matching `audio_url` in frontmatter:
-   ```
-   grep -rl "audio_url:.*{file-id}" "$VAULT/Meetings/"
-   ```
-   If a meeting note already exists for this URL, skip it (idempotent).
-3. **Extract context**: From the daily note line containing the URL, infer:
-   - **Project**: The wikilinked project name (e.g., `[[Khov]]`)
-   - **Description**: The task/meeting description (e.g., "sync with Don")
-   - **Participants**: Any names mentioned in the line or surrounding context
-4. **Transcribe inline** (do NOT use Task/sub-agents). For each new recording:
-
-   a. Download the audio:
-      ```bash
-      bash skills/transcribe-meeting/scripts/download-gdrive.sh "{url}"
-      ```
-   b. Determine the engine: `echo $OBSIDIAN_WHISPER_ENGINE` (defaults to `openai` if unset).
-   c. Run transcription directly:
-      ```bash
-      bash skills/transcribe-meeting/scripts/transcribe.sh "{local_audio_path}" "{engine}"
-      ```
-   d. Capture the JSON output (array of `{start, end, text}` segments).
-   e. Generate a meeting note following the format in `skills/transcribe-meeting/SKILL.md` Phase 3.
-   f. **Present the summary to the user for approval** before writing.
-   g. Create the meeting note at `$VAULT/Meetings/{date} {Title}.md`.
-
-5. **Update daily note**: Replace the Google Drive link in the daily note line:
-   ```
-   - [[Project]] - description - hours - [recording](https://drive.google.com/...)
-   ```
-   To:
-   ```
-   - [[Project]] - description - hours - [[{date} {Title}]]
-   ```
-6. **Update project note**: If the project has a note in `$VAULT/Projects/`, add a `## Meetings` section (or append to existing) with a wikilink to the meeting note.
-
-**Present the transcription summary to the user for confirmation before writing the meeting note** (consistent with refine's preview-before-applying pattern).
-
-If no recordings are found from either source, skip this phase silently.
-
-#### Phase 1c: Meeting Action Items → Project Todos
-
-After all meeting notes are created (from Phase 1a and 1b), extract action items and add them to the relevant project pages.
-
-1. **Collect action items**: For each newly created meeting note, read its `## Action Items` section.
-2. **Filter for Olivier's items**: Extract items assigned to Olivier (look for `@Olivier`, `Olivier:`, or unattributed items from 1:1 meetings where Olivier is a participant).
-3. **Map to projects**: Use the meeting frontmatter `project:` field to determine which project page each item belongs to.
-4. **Check for duplicates**: For each project, read the `## Todos` section and fuzzy-match proposed items against existing todos. Skip items that are already present (even if worded slightly differently).
-5. **Present proposed insertions** grouped by project:
-   > From [[2026-02-20 EXSQ Sol 1-1 Sync]], adding to project pages:
-   > - **EXSQ.md** `## Todos`: `- [ ] Set up Claude Code access for Sol (from [[2026-02-20 EXSQ Sol 1-1 Sync]])`
-   > - **EXSQ.md** `## Todos`: `- [ ] Explore Figma + GitHub integration feasibility (from [[2026-02-20 EXSQ Sol 1-1 Sync]])`
-6. **If approved**, append each todo under the `## Todos` section of the corresponding project file in `$VAULT/Projects/`.
-7. **Format**: `- [ ] task description (from [[Meeting Note]])` — no `[[Project]]` prefix needed since the todo is already in the project file.
-
-If no new meeting notes were created or no action items found, skip this phase silently.
-
-### Phase 2: Discover Vault Entities
+### Phase 1: Discover Vault Entities
 
 Build a catalog of all known entities so you can match them against the daily note text.
 
-1. **Projects**: List files recursively in `$VAULT/Projects/` — extract project names from filenames
-2. **People**: List files in `$VAULT/Persons/` — read each file to extract `aliases` from frontmatter
-3. **Topics**: List files in `$VAULT/Topics/` — extract topic names from filenames
-4. **Coding sessions**: List files in `$VAULT/Coding/` — for cross-reference awareness
-5. **Meetings**: List files in `$VAULT/Meetings/` — for cross-reference awareness and to avoid duplicate transcription
+1. **Projects**: Run `obsidian files folder=Projects` — extract project names from filenames
+2. **People**: Run `obsidian files folder=Persons` to list person files. For each, run `obsidian property:read name=aliases path="Persons/{name}.md"` to get aliases.
+3. **Topics**: Run `obsidian files folder=Topics` — extract topic names from filenames
+4. **Coding sessions**: Run `obsidian files folder=Coding` — for cross-reference awareness
+5. **Meetings**: Run `obsidian files folder=Meetings` — for cross-reference awareness
+6. **Tags**: Run `obsidian tags counts` to build a tag catalog
 
 This gives you the full entity catalog to match against the daily note.
 
-### Phase 2b: Slack Activity Scan
+### Phase 1b: Slack Activity Scan
 
 **Always run this phase.** If Slack MCP tools are unavailable, skip gracefully with no error.
 
@@ -244,16 +60,16 @@ This gives you the full entity catalog to match against the daily note.
    > - **DM with [[Adam Herrneckar|Adam]]** (3:05pm, ~25m): no matching time entry — add one?
 9. **If approved**, suggest time entry lines but do **NOT** auto-insert into time entries — present them for the user to manually add (time entries are sacred structured data).
 
-### Phase 2c: Slack Activity Summary
+### Phase 1c: Slack Activity Summary
 
-Using the data already gathered in Phase 2b, write a `### Slack Activity` section into the daily note summarizing the day's interactions.
+Using the data already gathered in Phase 1b, write a `### Slack Activity` section into the daily note summarizing the day's interactions.
 
 1. **Group by channel/conversation**: For each channel or DM where the user sent messages, build a brief summary:
    - **Channel name** (linked to project if a mapping exists)
    - **Time window** (e.g., 2:30–3:15pm)
    - **Message count**
-   - **Topics discussed**: Summarize the key topics, decisions, or questions from the messages (keep to 1–2 sentences per channel). Use context from `slack_read_channel` / `slack_read_thread` if threads were read in Phase 2b, otherwise summarize from search result snippets.
-   - **Huddle indicator**: If a huddle was detected in this channel (from Phase 2b step 6), note it with duration.
+   - **Topics discussed**: Summarize the key topics, decisions, or questions from the messages (keep to 1–2 sentences per channel). Use context from `slack_read_channel` / `slack_read_thread` if threads were read in Phase 1b, otherwise summarize from search result snippets.
+   - **Huddle indicator**: If a huddle was detected in this channel (from Phase 1b step 6), note it with duration.
 
 2. **Format** the section as a bullet list under `### Slack Activity`:
    ```markdown
@@ -263,15 +79,15 @@ Using the data already gathered in Phase 2b, write a `### Slack Activity` sectio
    - **DM with [[Adam Herrneckar|Adam]]** (3:05–3:30pm, 3 msgs + huddle ~25m) — Reviewed deployment pipeline changes.
    ```
 
-3. **Wikilink** any people and projects mentioned, using the entity catalog from Phase 2.
+3. **Wikilink** any people and projects mentioned, using the entity catalog from Phase 1.
 
 4. **Placement**: Insert the section after the time entries block and before the first `### [[Project]]` section (or at the end if no project sections exist). If a `### Slack Activity` section already exists, replace it (idempotent).
 
-5. **Include in Phase 6 preview**: Show the proposed Slack Activity section as part of the change summary for user approval.
+5. **Include in Phase 5 preview**: Show the proposed Slack Activity section as part of the change summary for user approval.
 
-If no Slack messages were found in Phase 2b, or Slack MCP tools were unavailable, skip this phase silently.
+If no Slack messages were found in Phase 1b, or Slack MCP tools were unavailable, skip this phase silently.
 
-### Phase 3: Analyze & Improve Writing
+### Phase 2: Analyze & Improve Writing
 
 Review each section of the daily note:
 
@@ -281,9 +97,13 @@ Review each section of the daily note:
 - **Preserve todos** — don't reorder, rewrite, or change checkbox state. Only improve prose around them.
 - **Author's voice** — improve clarity without rewriting the user's natural style. Don't make it sound like AI wrote it.
 
-### Phase 4: Add Missing Wikilinks
+### Phase 3: Add Missing Wikilinks
 
-Scan all text (outside time entries) for mentions of known entities:
+Use vault-native link analysis to find and fix missing wikilinks:
+
+1. Run `obsidian unresolved` to get all unresolved links in the vault — these are references to notes that don't exist yet. Filter for any that appear in today's daily note.
+2. Run `obsidian links file="{date}"` to see what the daily note already links to — avoid double-linking.
+3. Scan all text (outside time entries) for mentions of known entities from Phase 1 that are not yet linked:
 
 - **Projects**: Add `[[Project Name]]` links where project names appear unlinked
 - **People**: Add `[[Full Name]]` or `[[Full Name|Alias]]` when a short name or alias is used
@@ -291,18 +111,18 @@ Scan all text (outside time entries) for mentions of known entities:
 - **Heading style**: Use `### [[Project]]` for project section headings consistently
 
 **Rules:**
-- Don't double-link — skip text already inside `[[...]]`
+- Don't double-link — skip text already inside `[[...]]` or already in the `obsidian links` output
 - Don't link inside time entry lines
 - Link known entities freely without asking the user
 
-### Phase 5: Extract Long Sections
+### Phase 4: Extract Long Sections
 
 Identify sections that are >~20 lines or contain substantial standalone content worth its own note.
 
 For each extractable section:
 
 1. **Determine destination**: `Projects/` subtree or `Topics/` based on content
-2. **Create the new note** with proper format:
+2. **Create the new note** using `obsidian create path="{destination}" content="{formatted content}"`:
    ```markdown
    # {Title}
 
@@ -315,11 +135,13 @@ For each extractable section:
 
 **Present all proposed extractions to the user for approval before executing.** Show what would be extracted, where it would go, and what the replacement summary would look like.
 
-### Phase 5b: Suggest New Entities
+### Phase 4b: Suggest New Entities
 
 Identify mentions of people, projects, or topics that don't match any existing vault note.
 
-Present these as candidates:
+For each candidate name, run `qmd query "{name}"` to check if the entity already exists under a different spelling or alias before suggesting creation. If qmd returns a high-confidence match (>70%), skip the suggestion and use the existing entity instead.
+
+Present remaining candidates:
 ```
 It looks like **Jane Smith** and **ProjectX** are mentioned but don't have vault pages yet.
 Want me to create them?
@@ -365,18 +187,14 @@ After creating new entities:
 - Add them to the respective MOC file (e.g., Persons MOC, Topics MOC) if one exists
 - Link them in the daily note (they now exist as vault pages)
 
-### Phase 5c: Suggest Todo Completions
+### Phase 4c: Suggest Todo Completions
 
 Scan unchecked todos on project pages against today's content to suggest completions with high confidence.
 
-1. **Collect unchecked todos** from project pages: read the `## Todos` section of each project file referenced in today's time entries (in `$VAULT/Projects/`). Collect all `- [ ]` lines.
-2. **Build an evidence corpus** from:
-   - Meeting note `## Decisions` and `## Action Items` sections (items marked complete)
-   - Coding session summaries and files changed (from `Coding/` notes for this date)
-   - PR review verdicts (merged PRs mentioned in notes)
-   - Daily note prose sections
+1. **Collect unchecked todos**: Run `obsidian tasks todo` to get all open todos from project files. Filter to projects referenced in today's time entries.
+2. **Search for completion evidence**: For each unchecked todo, run `qmd query "{todo text}"` to search for evidence across today's daily note, meeting notes, and coding sessions. Look for high-confidence semantic matches.
 3. **Match todos to evidence** — for each unchecked todo, check for HIGH confidence matches only:
-   - Strong keyword overlap between todo text and evidence
+   - Strong semantic similarity between todo text and evidence (qmd score >70%)
    - Explicit completion signals ("merged PR #X", "completed", "done", "shipped", "deployed")
 4. **Present suggestions with evidence**:
    > These todos appear done based on today's work:
@@ -391,13 +209,13 @@ Scan unchecked todos on project pages against today's content to suggest complet
 - Never auto-complete without user approval
 - If no high-confidence matches found, skip this phase silently
 
-### Phase 5d: Freeze "Done today" on Previous Days
+### Phase 4d: Freeze "Done today" on Previous Days
 
 When refining a **previous day's** note (not today), convert the "Done today" dataview query into plain markdown so it becomes a permanent historical record.
 
 1. **Check if the target date is before today**. If refining today's note, skip this phase entirely.
 2. **Find the `### Done today` section** and its dataview code block.
-3. **Read completed todos from project pages**: search all project files in `$VAULT/Projects/` for tasks matching `- [x] ... ✅ {target-date}` under `## Todos` sections.
+3. **Read completed todos**: Run `obsidian tasks done` and filter the output for items containing `✅ {target-date}`.
 4. **Build plain markdown** from the results:
    ```markdown
    ### Done today
@@ -410,7 +228,7 @@ When refining a **previous day's** note (not today), convert the "Done today" da
 
 If no completed tasks found for the target date, replace the dataview with an empty section (just the heading).
 
-### Phase 5e: Move Inline Todos to Project Pages
+### Phase 4e: Move Inline Todos to Project Pages
 
 Scan the daily note for `- [ ]` lines written outside of dataview blocks and move them to the appropriate project page.
 
@@ -429,7 +247,7 @@ Scan the daily note for `- [ ]` lines written outside of dataview blocks and mov
 
 If no inline todos found, skip this phase silently.
 
-### Phase 6: Apply & Confirm
+### Phase 5: Apply & Confirm
 
 1. **Show a summary** of all proposed changes before writing:
    - Prose improvements (brief description)
@@ -440,7 +258,7 @@ If no inline todos found, skip this phase silently.
 3. **Apply changes**: edit the daily note, create any extracted/new entity notes
 4. **Report**: what was changed, what was linked, what was extracted, what was created
 
-### Phase 7: Update Project Recent Activity
+### Phase 6: Update Project Recent Activity
 
 After all daily note changes are applied, update each referenced project's note with a summary of today's activity.
 
@@ -454,26 +272,10 @@ After all daily note changes are applied, update each referenced project's note 
 4. **Present all proposed project note updates** for approval before applying.
 5. **Apply changes** if approved.
 
-### Phase 7b: Update Person Interaction History
-
-Update person notes for anyone who appeared in today's meetings.
-
-1. **Collect participants** from all newly created meeting notes (from frontmatter `participants:` field).
-2. **For each person** with a note in `$VAULT/Persons/`:
-   - Read the existing `## Recent Interactions` section (or prepare to create it)
-   - Build entry: `- **{date}**: [[Meeting Note]] — {topics discussed, action items for/from them}`
-   - Prune entries older than 30 days from the section
-   - Insert the `## Recent Interactions` section before `## Notes` or at the end of the note
-3. **Check idempotency**: If an entry for today's date + same meeting already exists, skip it.
-4. **Present all proposed person note updates** for approval before applying.
-5. **Apply changes** if approved.
-
-If no new meeting notes were created or no participants have vault pages, skip this phase silently.
-
 ## Key Rules
 
 - **Never modify time entries** — the bullet list at the top is structured data
-- **Todos live on project pages** — open todos are under `## Todos` in each project file. Daily notes show them via dataview queries (`### Done today` for completed, `### Open todos` for unchecked). New todos from meetings go to project pages, not daily notes.
+- **Todos live on project pages** — open todos are under `## Todos` in each project file. Daily notes show them via dataview queries (`### Done today` for completed, `### Open todos` for unchecked).
 - **Link known entities freely** — no need to ask for entities that already exist
 - **Offer to create unknown entities** — ask before creating new vault pages
 - **Author's voice** — improve clarity without rewriting style
