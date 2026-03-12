@@ -6,11 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a Claude Code plugin (`om`) — a personal skills collection. Current skills:
 
+- `/obsidian-refine-daily-note [date]` — Improve daily notes: polish writing, add wikilinks, extract long sections, suggest new entities
+- `/obsidian-session-summary` — Capture session summary into Obsidian vault and link from daily note
+- `/obsidian-weekly-rollup [date]` — Generate weekly summary from daily notes
+- `/obsidian-transcribe-meeting <url-or-path>` — Transcribe a meeting recording and create a structured meeting note
 - `/intervals-time-entry [date]` — Fill Intervals time entries from daily notes (`Daily Notes/YYYY-MM-DD.md`)
 - `/intervals-to-freshbooks [week-start]` — Sync a week of Intervals entries to FreshBooks
-- `/done` — Capture session summary into Obsidian vault and link from daily note
-- `/refine [date]` — Improve daily notes: polish writing, add wikilinks, extract long sections, suggest new entities (also transcribes meeting recordings from Google Drive links)
-- `/transcribe-meeting <url-or-path>` — Transcribe a meeting recording and create a structured meeting note with summary, decisions, and action items
+- `/github-pr-review` — Review a PR and post findings as inline comments to GitHub
 
 There is no build system, test suite, or linter. The project is pure JavaScript (browser scripts executed via chrome-devtools MCP) and Bash (API utilities).
 
@@ -20,17 +22,21 @@ There is no build system, test suite, or linter. The project is pure JavaScript 
 
 ```
 skills/
-├── done/                       # Session summary → Obsidian vault
+├── done/                       # Session summary → Obsidian vault (obsidian-session-summary)
 │   └── SKILL.md                # Workflow definition
 ├── intervals-time-entry/       # Notes → Intervals (browser automation)
 │   ├── SKILL.md                # Workflow definition (8 phases + GitHub/Outlook correlation)
 │   ├── references/             # Mapping files (project, worktype, github, outlook, people)
 │   └── scripts/                # Browser JS + GitHub fetch bash script
-├── refine/                     # Daily note improvement (wikilinks, extraction)
-│   └── SKILL.md                # Workflow definition (7 phases, incl. meeting transcription)
-├── transcribe-meeting/         # Meeting recording → structured notes
-│   ├── SKILL.md                # Workflow definition (standalone + refine integration)
+├── refine/                     # Daily note improvement (obsidian-refine-daily-note)
+│   └── SKILL.md                # Workflow definition (6 phases)
+├── transcribe-meeting/         # Meeting recording → structured notes (obsidian-transcribe-meeting)
+│   ├── SKILL.md                # Workflow definition (standalone)
 │   └── scripts/                # download-gdrive.sh, transcribe.sh
+├── rollup/                     # Weekly summary from daily notes (obsidian-weekly-rollup)
+│   └── SKILL.md                # Workflow definition
+├── code-review/                # PR review → GitHub comments (github-pr-review)
+│   └── SKILL.md                # Workflow definition
 └── intervals-to-freshbooks/    # Intervals → FreshBooks (API + browser)
     ├── SKILL.md                # Workflow definition (5 phases)
     ├── references/             # Intervals→FreshBooks project mappings
@@ -131,6 +137,8 @@ claude plugin enable om
 
 ## Dependencies
 
+- Obsidian desktop app with CLI enabled (Settings → General → CLI) for vault-native operations
+- `qmd` CLI (installed via `bun install -g @tobilu/qmd`) for semantic vault search
 - Chrome/Chromium with `--remote-debugging-port=9222` and chrome-devtools MCP server
 - `gh` CLI (authenticated) for GitHub activity fetching
 - `curl` and `jq` for FreshBooks API calls
