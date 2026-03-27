@@ -30,21 +30,50 @@ if [ -n "$RODECASTER_MOUNT" ]; then
     fi
 else
     # Check both SD card mount (via card reader) and Rodecaster transfer mode (via USB).
-    # Use find(1) for discovery since bash glob expansion can silently fail in
-    # sandboxed environments (e.g. Claude Code sandbox restricts /run/media).
+    # Use findmnt/lsblk for discovery — find /run/media/ fails in sandboxed environments
+    # (e.g. Claude Code sandbox restricts /run/media access for find).
     MOUNTS=()
-    if [ -d /run/media/ ]; then
-        while IFS= read -r -d '' m; do
-            MOUNTS+=("$m")
-        done < <(find /run/media/ -maxdepth 3 -type d -name "RODECaster" -print0 2>/dev/null)
-        # Deduplicate
-        if [ ${#MOUNTS[@]} -gt 0 ]; then
-            MOUNTS=($(printf '%s\n' "${MOUNTS[@]}" | sort -u))
+    # Strategy 1: use findmnt to list all mount points, filter for ones containing RODECaster subdir
+    while IFS= read -r mount_point; do
+        candidate="${mount_point}/RODECaster"
+        if [ -d "$candidate" ]; then
+            MOUNTS+=("$candidate")
+        fi
+    done < <(findmnt -r -o TARGET --noheadings 2>/dev/null | grep -i 'rodecaster\|rode' || true)
+    # Strategy 2: fall back to lsblk if findmnt found nothing
+    if [ ${#MOUNTS[@]} -eq 0 ]; then
+        while IFS= read -r mount_point; do
+            candidate="${mount_point}/RODECaster"
+            if [ -d "$candidate" ]; then
+                MOUNTS+=("$candidate")
+            fi
+        done < <(lsblk -r -o MOUNTPOINT --noheadings 2>/dev/null | grep -v '^$' | grep -i 'rode' || true)
+    fi
+    # Deduplicate
+    if [ ${#MOUNTS[@]} -gt 0 ]; then
+        MOUNTS=($(printf '%s\n' "${MOUNTS[@]}" | sort -u))
+    fi
+    # Strategy 3: device detected but not mounted — auto-mount via udisksctl
+    if [ ${#MOUNTS[@]} -eq 0 ]; then
+        RODE_DEV=$(lsblk -rno NAME,LABEL 2>/dev/null | awk '$2 == "RodeCaster" || $2 == "RODECaster" {print "/dev/"$1; exit}')
+        if [ -n "$RODE_DEV" ]; then
+            echo "Rodecaster detected at $RODE_DEV but not mounted. Mounting..." >&2
+            MOUNT_OUTPUT=$(udisksctl mount -b "$RODE_DEV" 2>&1) || {
+                echo "Error: Failed to mount $RODE_DEV: $MOUNT_OUTPUT" >&2
+                exit 1
+            }
+            MOUNT_POINT=$(echo "$MOUNT_OUTPUT" | grep -oP 'at \K.*')
+            if [ -d "$MOUNT_POINT/RODECaster" ]; then
+                MOUNTS=("$MOUNT_POINT/RODECaster")
+            else
+                echo "Error: Mounted $RODE_DEV at $MOUNT_POINT but no RODECaster directory found." >&2
+                exit 1
+            fi
         fi
     fi
     if [ ${#MOUNTS[@]} -eq 0 ]; then
         echo "Error: No RODECaster SD card found. Set RODECASTER_MOUNT=/path/to/RODECaster if auto-detect fails." >&2
-        echo "Checked: /run/media/*/*/RODECaster/ and /run/media/*/RodeCaster/RODECaster/" >&2
+        echo "Tried: findmnt, lsblk mount points, lsblk label + udisksctl auto-mount." >&2
         exit 1
     fi
     if [ ${#MOUNTS[@]} -gt 1 ]; then

@@ -35,10 +35,13 @@ fi
 
 LAST_SILENCE_START_INT=${LAST_SILENCE_START%.*}
 
-# Only trim if silence is at the tail end (starts in the last 25% of the file)
-THRESHOLD=$(( DURATION_INT * 75 / 100 ))
+# Trim if silence starts in the last 50% of the file (not just the last 25%).
+# Many recordings have brief real content followed by long silence (e.g. 2min speech
+# in a 21min recording). A 50% threshold catches these while still ignoring
+# mid-recording pauses.
+THRESHOLD=$(( DURATION_INT * 50 / 100 ))
 if [ "$LAST_SILENCE_START_INT" -lt "$THRESHOLD" ]; then
-    # Silence is in the middle, not trailing — don't trim
+    # Silence is in the first half, not trailing
     echo "$WAV_FILE"
     exit 0
 fi
@@ -50,6 +53,6 @@ TRIMMED_FILE="/tmp/${BASENAME}_trimmed.wav"
 
 echo "Trimming trailing silence: cutting at ${TRIM_AT}s (total was ${DURATION_INT}s)" >&2
 
-ffmpeg -i "$WAV_FILE" -t "$TRIM_AT" -c:a copy "$TRIMMED_FILE" -y -loglevel warning 2>&1 >&2
+ffmpeg -i "$WAV_FILE" -t "$TRIM_AT" -c:a copy "$TRIMMED_FILE" -y -loglevel warning >/dev/null 2>&1
 
 echo "$TRIMMED_FILE"

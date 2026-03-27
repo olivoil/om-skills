@@ -19,6 +19,12 @@ set -e
 
 AUDIO_FILE="${1:?Usage: $0 <audio-file> [openai|local]}"
 ENGINE="${2:-openai}"
+# Normalize engine aliases
+case "$ENGINE" in
+    whisper.cpp|whisper-cpp|whisper_cpp|local) ENGINE="local" ;;
+    openai) ;;
+    *) echo "Warning: Unknown engine '$ENGINE', defaulting to 'openai'" >&2; ENGINE="openai" ;;
+esac
 
 if [ ! -f "$AUDIO_FILE" ]; then
     echo "Error: File not found: $AUDIO_FILE" >&2
@@ -33,7 +39,7 @@ WAV_FILE="/tmp/${BASENAME}_${PATH_HASH}_16k.wav"
 
 if [ ! -f "$WAV_FILE" ]; then
     echo "Preprocessing: converting to WAV 16kHz mono..." >&2
-    ffmpeg -i "$AUDIO_FILE" -ar 16000 -ac 1 -c:a pcm_s16le "$WAV_FILE" -y -loglevel warning 2>&1 >&2
+    ffmpeg -i "$AUDIO_FILE" -ar 16000 -ac 1 -c:a pcm_s16le "$WAV_FILE" -y -loglevel warning >/dev/null 2>&1
 fi
 
 # --- Trim trailing silence to prevent whisper hallucination ---
@@ -110,10 +116,14 @@ else
         CHUNK_FILE="${CHUNK_DIR}/chunk_${OFFSET}.wav"
         echo "  Extracting chunk at ${OFFSET}s..." >&2
 
-        ffmpeg -i "$WAV_FILE" -ss "$OFFSET" -t "$CHUNK_SECS" -c:a pcm_s16le "$CHUNK_FILE" -y -loglevel warning 2>&1 >&2
+        ffmpeg -i "$WAV_FILE" -ss "$OFFSET" -t "$CHUNK_SECS" -c:a pcm_s16le "$CHUNK_FILE" -y -loglevel warning >/dev/null 2>&1
 
         echo "  Transcribing chunk at ${OFFSET}s..." >&2
-        CHUNK_RESULT=$(transcribe_openai_chunk "$CHUNK_FILE" "$OPENAI_API_KEY")
+        if [ "$ENGINE" = "openai" ]; then
+            CHUNK_RESULT=$(transcribe_openai_chunk "$CHUNK_FILE" "$OPENAI_API_KEY")
+        else
+            CHUNK_RESULT=$(transcribe_local_chunk "$CHUNK_FILE")
+        fi
 
         # Adjust timestamps by adding the chunk offset
         ADJUSTED=$(echo "$CHUNK_RESULT" | jq --argjson offset "$OFFSET" '
