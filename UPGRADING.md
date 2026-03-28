@@ -46,7 +46,9 @@ pip install torch pyannote.audio
 Then:
 
 1. Accept the model terms at https://huggingface.co/pyannote/speaker-diarization-3.1
-2. Set `HF_TOKEN` to your HuggingFace access token
+2. Provide your HuggingFace access token via either:
+   - `export HF_TOKEN=hf_...` environment variable, or
+   - 1Password at `op://Private/Obsidian/HF_TOKEN` (fetched automatically via `op read`)
 
 #### Usage
 

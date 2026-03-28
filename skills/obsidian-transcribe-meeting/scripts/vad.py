@@ -9,7 +9,7 @@ Outputs JSON speech segments to stdout:
 
 Environment:
   OBSIDIAN_VAD_MODEL — "silero", "pyannote", or "none" (default: "none")
-  HF_TOKEN             — HuggingFace token (required for pyannote)
+  HF_TOKEN             — HuggingFace token (required for pyannote, or fetched from 1Password)
 
 Requires:
   silero:   pip install torch torchaudio
@@ -53,7 +53,17 @@ def run_pyannote(audio_file: str) -> list[dict]:
 
     hf_token = os.environ.get("HF_TOKEN")
     if not hf_token:
-        print("Error: HF_TOKEN required for pyannote (accept model terms at huggingface.co/pyannote/speaker-diarization-3.1)", file=sys.stderr)
+        # Try 1Password fallback
+        import subprocess
+        try:
+            hf_token = subprocess.run(
+                ["op", "read", "op://Private/Obsidian/HF_TOKEN"],
+                capture_output=True, text=True, timeout=10,
+            ).stdout.strip()
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+    if not hf_token:
+        print("Error: HF_TOKEN required for pyannote (set env var or add to 1Password at op://Private/Obsidian/HF_TOKEN). Accept model terms at huggingface.co/pyannote/speaker-diarization-3.1", file=sys.stderr)
         sys.exit(1)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
