@@ -42,9 +42,9 @@ If no explicit URL or file path was given:
 
 2. **Discover Rodecaster recordings**:
    ```bash
-   RODECASTER_MOUNT=/run/media/olivier/RodeCaster/RODECaster bash skills/obsidian-transcribe-meeting/scripts/find-recordings.sh "{date}"
+   OBSIDIAN_RODECASTER_MOUNT=/run/media/olivier/RodeCaster/RODECaster bash skills/obsidian-transcribe-meeting/scripts/find-recordings.sh "{date}"
    ```
-   If `RODECASTER_MOUNT` fails (directory not found), fall back without it to try auto-detect.
+   If `OBSIDIAN_RODECASTER_MOUNT` fails (directory not found), fall back without it to try auto-detect.
    Save the JSON output to a temp file (e.g., `/tmp/rodecaster-{date}.json`).
 
 3. **Match recordings** by time overlap:
@@ -190,7 +190,7 @@ Applies to **all recording modes** (omarchy+rodecaster, omarchy-only, and rodeca
 ```bash
 bash skills/obsidian-transcribe-meeting/scripts/find-screenshots.sh "{date}" "{start_time}" "{duration_secs}"
 ```
-This returns a JSON array of screenshots from `~/Pictures/` (or `$OMARCHY_SCREENSHOT_DIR` / `$XDG_PICTURES_DIR`) taken during the meeting timeframe (±5 min buffer). Each entry has `path`, `timestamp`, and `offset_secs`. This script has no video dependency — it matches screenshot timestamps against the meeting time window.
+This returns a JSON array of screenshots from `~/Pictures/` (or `$OBSIDIAN_SCREENSHOT_DIR` / `$XDG_PICTURES_DIR`) taken during the meeting timeframe (±5 min buffer). Each entry has `path`, `timestamp`, and `offset_secs`. This script has no video dependency — it matches screenshot timestamps against the meeting time window.
 
 **Step 2 — Copy and embed user screenshots**:
 For each found screenshot:

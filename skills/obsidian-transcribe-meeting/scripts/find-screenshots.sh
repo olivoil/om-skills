@@ -12,7 +12,7 @@
 #     "timestamp": "2026-02-20T09:40:15", "offset_secs": 248}]
 #
 # Environment:
-#   OMARCHY_SCREENSHOT_DIR — override search directory
+#   OBSIDIAN_SCREENSHOT_DIR — override search directory
 #   XDG_PICTURES_DIR — fallback search directory
 #   Default: $HOME/Pictures/
 #
@@ -31,8 +31,8 @@ if ! date -d "$TARGET_DATE" +%Y-%m-%d >/dev/null 2>&1; then
 fi
 
 # Determine screenshots directory
-if [ -n "$OMARCHY_SCREENSHOT_DIR" ]; then
-    SEARCH_DIR="$OMARCHY_SCREENSHOT_DIR"
+if [ -n "$OBSIDIAN_SCREENSHOT_DIR" ]; then
+    SEARCH_DIR="$OBSIDIAN_SCREENSHOT_DIR"
 elif [ -n "$XDG_PICTURES_DIR" ]; then
     SEARCH_DIR="$XDG_PICTURES_DIR"
 else
