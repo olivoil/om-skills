@@ -8,7 +8,7 @@ Outputs JSON speech segments to stdout:
   Pyannote: [{"start": 0.0, "end": 5.2, "speaker": "SPEAKER_00"}, ...]
 
 Environment:
-  TRANSCRIBE_VAD_MODEL — "silero", "pyannote", or "none" (default: "none")
+  OBSIDIAN_VAD_MODEL — "silero", "pyannote", or "none" (default: "none")
   HF_TOKEN             — HuggingFace token (required for pyannote)
 
 Requires:
@@ -112,7 +112,7 @@ def main():
         sys.exit(1)
 
     audio_file = sys.argv[1]
-    model = os.environ.get("TRANSCRIBE_VAD_MODEL", "none").lower()
+    model = os.environ.get("OBSIDIAN_VAD_MODEL", "none").lower()
 
     if model == "none":
         # No VAD — output empty array so caller knows to use default behavior

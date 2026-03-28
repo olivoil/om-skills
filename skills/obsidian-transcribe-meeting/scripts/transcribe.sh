@@ -95,7 +95,7 @@ if [ "$ENGINE" = "openai" ]; then
 fi
 
 # --- Run VAD if configured ---
-VAD_MODEL="${TRANSCRIBE_VAD_MODEL:-none}"
+VAD_MODEL="${OBSIDIAN_VAD_MODEL:-none}"
 VAD_SEGMENTS="[]"
 
 if [ "$VAD_MODEL" != "none" ]; then

@@ -103,7 +103,7 @@ If the input is a local file path, use it directly.
 3. Capture the JSON output — an array of `{start, end, text}` segments.
    - With pyannote VAD: segments also include `speaker` field (e.g. `"SPEAKER_00"`)
 
-**VAD (Voice Activity Detection)** is controlled by `TRANSCRIBE_VAD_MODEL`:
+**VAD (Voice Activity Detection)** is controlled by `OBSIDIAN_VAD_MODEL`:
 - `none` (default) — no VAD, uses silence trimming + fixed chunking (current behavior)
 - `silero` — Silero VAD strips non-speech segments before transcription. Fast, CPU-only. Reduces Whisper hallucination and improves chunking.
 - `pyannote` — pyannote.audio speaker diarization. Provides VAD + speaker labels so the transcript is attributed per-speaker. Requires GPU (ROCm/CUDA) and `HF_TOKEN` for HuggingFace model access.
