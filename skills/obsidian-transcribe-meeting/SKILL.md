@@ -1,7 +1,7 @@
 ---
 name: obsidian-transcribe-meeting
 description: Transcribe a meeting recording from the Rodecaster SD card, Google Drive, or a local file. Creates a meeting note with summary, decisions, and action items, plus an MP3 archive. Use when the user types /transcribe-meeting or asks to transcribe a recording.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(bash *obsidian-transcribe-meeting/scripts/*), Bash(*bash *obsidian-transcribe-meeting/scripts/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls *), Bash(youtubeuploader *), Bash(bc *), Bash(udisksctl *), Bash(lsblk *), Bash(md5sum *), Bash(date *), Bash(grep *), Bash(cat *), Bash(echo *), Bash(mkdir *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(bash *obsidian-transcribe-meeting/scripts/*), Bash(*bash *obsidian-transcribe-meeting/scripts/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(python3 *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls *), Bash(youtubeuploader *), Bash(bc *), Bash(udisksctl *), Bash(lsblk *), Bash(md5sum *), Bash(date *), Bash(grep *), Bash(cat *), Bash(echo *), Bash(mkdir *)
 ---
 
 # Transcribe Meeting
@@ -101,6 +101,14 @@ If the input is a local file path, use it directly.
    bash skills/obsidian-transcribe-meeting/scripts/transcribe.sh "<audio-file>" "<engine>"
    ```
 3. Capture the JSON output — an array of `{start, end, text}` segments.
+   - With pyannote VAD: segments also include `speaker` field (e.g. `"SPEAKER_00"`)
+
+**VAD (Voice Activity Detection)** is controlled by `TRANSCRIBE_VAD_MODEL`:
+- `none` (default) — no VAD, uses silence trimming + fixed chunking (current behavior)
+- `silero` — Silero VAD strips non-speech segments before transcription. Fast, CPU-only. Reduces Whisper hallucination and improves chunking.
+- `pyannote` — pyannote.audio speaker diarization. Provides VAD + speaker labels so the transcript is attributed per-speaker. Requires GPU (ROCm/CUDA) and `HF_TOKEN` for HuggingFace model access.
+
+When VAD provides speaker labels (pyannote mode), Phase 3 should use them to attribute speech in the transcript and improve summarization (decisions, action items attributed to specific speakers).
 
 ### Phase 3: Summarize & Create Meeting Note
 
@@ -116,6 +124,13 @@ Format the transcript with timestamps:
 ```
 [H:MM:SS] Text of the segment...
 ```
+
+When speaker labels are present (pyannote mode), format as:
+```
+[H:MM:SS] **Speaker A**: Text of the segment...
+[H:MM:SS] **Speaker B**: Text of the segment...
+```
+Speaker labels from pyannote are generic (`SPEAKER_00`, `SPEAKER_01`). Replace with real names if participants are known from context, daily notes, or `people-context.md`. Otherwise use `Speaker A`, `Speaker B`, etc.
 
 Create the meeting note with `obsidian create path="Meetings/{date} {Title}.md" content="{formatted content}"`:
 
@@ -283,3 +298,5 @@ If any search returns results, skip creation and return the existing note path. 
 - If `ffmpeg` is not available: error with install instructions
 - If OpenAI API key is missing: check 1Password, then ask user
 - If transcription fails: report the error, suggest trying the other engine
+- If VAD fails: falls back automatically to default chunking (no VAD), warns the user
+- If pyannote fails due to missing `HF_TOKEN`: tell user to set `HF_TOKEN` and accept model terms at huggingface.co/pyannote/speaker-diarization-3.1

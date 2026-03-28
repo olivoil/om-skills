@@ -7,13 +7,17 @@
 #
 # Output: JSON array of segments to stdout
 #   [{"start": 0.0, "end": 5.2, "text": "Hello..."}, ...]
+#   With pyannote VAD: [{"start": 0.0, "end": 5.2, "text": "Hello...", "speaker": "SPEAKER_00"}, ...]
 #
 # Environment:
-#   OPENAI_API_KEY — required for openai engine (or fetched from 1Password)
+#   OPENAI_API_KEY       — required for openai engine (or fetched from 1Password)
+#   TRANSCRIBE_VAD_MODEL — "none" (default), "silero", or "pyannote"
+#   HF_TOKEN             — required for pyannote model
 #
 # Requires: ffmpeg, jq
 # For openai engine: curl
 # For local engine: whisper.cpp (whisper-cpp CLI)
+# For VAD: python3, torch (+ pyannote.audio for pyannote mode)
 
 set -e
 
@@ -90,8 +94,97 @@ if [ "$ENGINE" = "openai" ]; then
     fi
 fi
 
+# --- Run VAD if configured ---
+VAD_MODEL="${TRANSCRIBE_VAD_MODEL:-none}"
+VAD_SEGMENTS="[]"
+
+if [ "$VAD_MODEL" != "none" ]; then
+    echo "Running VAD model: $VAD_MODEL..." >&2
+    VAD_SEGMENTS=$(python3 "$SCRIPT_DIR/vad.py" "$WAV_FILE")
+
+    if [ $? -ne 0 ] || [ -z "$VAD_SEGMENTS" ]; then
+        echo "Warning: VAD failed, falling back to default chunking" >&2
+        VAD_SEGMENTS="[]"
+    fi
+fi
+
+VAD_COUNT=$(echo "$VAD_SEGMENTS" | jq 'length')
+
 # --- Transcribe ---
-if [ "$FILE_SIZE" -le "$MAX_SIZE" ] || [ "$ENGINE" = "local" ]; then
+if [ "$VAD_COUNT" -gt 0 ]; then
+    # VAD-guided transcription: transcribe each speech segment
+    echo "Transcribing $VAD_COUNT VAD segments..." >&2
+
+    CHUNK_DIR="/tmp/whisper_chunks_$$"
+    mkdir -p "$CHUNK_DIR"
+
+    # Write VAD segments to temp file so we can iterate without a subshell pipe
+    VAD_TMPFILE="${CHUNK_DIR}/vad_segments.json"
+    echo "$VAD_SEGMENTS" > "$VAD_TMPFILE"
+
+    ALL_SEGMENTS="[]"
+    IDX=0
+    TOTAL=$VAD_COUNT
+
+    while [ "$IDX" -lt "$TOTAL" ]; do
+        SEG=$(jq -c ".[$IDX]" "$VAD_TMPFILE")
+        SEG_START=$(echo "$SEG" | jq -r '.start')
+        SEG_END=$(echo "$SEG" | jq -r '.end')
+        SEG_DURATION=$(echo "$SEG_END - $SEG_START" | bc)
+        SEG_SPEAKER=$(echo "$SEG" | jq -r '.speaker // empty')
+
+        echo "  Segment $((IDX+1))/$TOTAL: ${SEG_START}s-${SEG_END}s${SEG_SPEAKER:+ ($SEG_SPEAKER)}" >&2
+
+        CHUNK_FILE="${CHUNK_DIR}/vad_${IDX}.wav"
+        ffmpeg -i "$WAV_FILE" -ss "$SEG_START" -t "$SEG_DURATION" -c:a pcm_s16le "$CHUNK_FILE" -y -loglevel warning >/dev/null 2>&1
+
+        # Check chunk size for OpenAI limit
+        CHUNK_SIZE=$(stat -c '%s' "$CHUNK_FILE" 2>/dev/null || stat -f '%z' "$CHUNK_FILE")
+
+        if [ "$ENGINE" = "openai" ] && [ "$CHUNK_SIZE" -gt "$MAX_SIZE" ]; then
+            # Sub-chunk large VAD segments for OpenAI
+            SUB_DIR="${CHUNK_DIR}/sub_${IDX}"
+            mkdir -p "$SUB_DIR"
+            SUB_DURATION=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$CHUNK_FILE" | cut -d. -f1)
+            SUB_OFFSET=0
+            SUB_SECS=600
+
+            while [ "$SUB_OFFSET" -lt "$SUB_DURATION" ]; do
+                SUB_FILE="${SUB_DIR}/sub_${SUB_OFFSET}.wav"
+                ffmpeg -i "$CHUNK_FILE" -ss "$SUB_OFFSET" -t "$SUB_SECS" -c:a pcm_s16le "$SUB_FILE" -y -loglevel warning >/dev/null 2>&1
+
+                CHUNK_RESULT=$(transcribe_openai_chunk "$SUB_FILE" "$OPENAI_API_KEY")
+                ABS_OFFSET=$(echo "$SEG_START + $SUB_OFFSET" | bc)
+                ADJUSTED=$(echo "$CHUNK_RESULT" | jq --argjson offset "$ABS_OFFSET" --arg spk "$SEG_SPEAKER" '
+                    map(.start += $offset | .end += $offset | if $spk != "" then .speaker = $spk else . end)
+                ')
+                ALL_SEGMENTS=$(echo "$ALL_SEGMENTS" "$ADJUSTED" | jq -s '.[0] + .[1]')
+
+                SUB_OFFSET=$(( SUB_OFFSET + SUB_SECS ))
+            done
+            rm -rf "$SUB_DIR"
+        else
+            if [ "$ENGINE" = "openai" ]; then
+                CHUNK_RESULT=$(transcribe_openai_chunk "$CHUNK_FILE" "$OPENAI_API_KEY")
+            else
+                CHUNK_RESULT=$(transcribe_local_chunk "$CHUNK_FILE")
+            fi
+
+            # Adjust timestamps to absolute time and add speaker label if present
+            ADJUSTED=$(echo "$CHUNK_RESULT" | jq --argjson offset "$SEG_START" --arg spk "$SEG_SPEAKER" '
+                map(.start += $offset | .end += $offset | if $spk != "" then .speaker = $spk else . end)
+            ')
+            ALL_SEGMENTS=$(echo "$ALL_SEGMENTS" "$ADJUSTED" | jq -s '.[0] + .[1]')
+        fi
+
+        IDX=$(( IDX + 1 ))
+    done
+
+    rm -rf "$CHUNK_DIR"
+
+    echo "$ALL_SEGMENTS"
+
+elif [ "$FILE_SIZE" -le "$MAX_SIZE" ] || [ "$ENGINE" = "local" ]; then
     # Single file, no chunking needed (local engine handles any size)
     if [ "$ENGINE" = "openai" ]; then
         transcribe_openai_chunk "$WAV_FILE" "$OPENAI_API_KEY"
