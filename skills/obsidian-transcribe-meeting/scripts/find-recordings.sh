@@ -7,7 +7,7 @@
 #     "duration_secs": 4132, "created_at": "2026-02-18T12:23:15", "recording_id": "9"}]
 #
 # Environment:
-#   RODECASTER_MOUNT — override mount point (default: auto-detect /run/media/*/RODECaster/)
+#   OBSIDIAN_RODECASTER_MOUNT — override mount point (default: auto-detect /run/media/*/RODECaster/)
 #
 # Requires: jq, date
 
@@ -22,10 +22,10 @@ if ! date -d "$TARGET_DATE" +%Y-%m-%d >/dev/null 2>&1; then
 fi
 
 # --- Mount discovery ---
-if [ -n "$RODECASTER_MOUNT" ]; then
-    MOUNT="$RODECASTER_MOUNT"
+if [ -n "$OBSIDIAN_RODECASTER_MOUNT" ]; then
+    MOUNT="$OBSIDIAN_RODECASTER_MOUNT"
     if [ ! -d "$MOUNT" ]; then
-        echo "Error: RODECASTER_MOUNT directory not found: $MOUNT" >&2
+        echo "Error: OBSIDIAN_RODECASTER_MOUNT directory not found: $MOUNT" >&2
         exit 1
     fi
 else
@@ -72,13 +72,13 @@ else
         fi
     fi
     if [ ${#MOUNTS[@]} -eq 0 ]; then
-        echo "Error: No RODECaster SD card found. Set RODECASTER_MOUNT=/path/to/RODECaster if auto-detect fails." >&2
+        echo "Error: No RODECaster SD card found. Set OBSIDIAN_RODECASTER_MOUNT=/path/to/RODECaster if auto-detect fails." >&2
         echo "Tried: findmnt, lsblk mount points, lsblk label + udisksctl auto-mount." >&2
         exit 1
     fi
     if [ ${#MOUNTS[@]} -gt 1 ]; then
         echo "Error: Multiple RODECaster mounts found: ${MOUNTS[*]}" >&2
-        echo "Set RODECASTER_MOUNT to pick one." >&2
+        echo "Set OBSIDIAN_RODECASTER_MOUNT to pick one." >&2
         exit 1
     fi
     MOUNT="${MOUNTS[0]%/}"

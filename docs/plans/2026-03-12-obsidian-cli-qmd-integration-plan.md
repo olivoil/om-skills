@@ -388,7 +388,7 @@ Applies to **all recording modes** (omarchy+rodecaster, omarchy-only, and rodeca
 ```bash
 bash skills/transcribe-meeting/scripts/find-screenshots.sh "{date}" "{start_time}" "{duration_secs}"
 ```
-This returns a JSON array of screenshots from `~/Pictures/` (or `$OMARCHY_SCREENSHOT_DIR` / `$XDG_PICTURES_DIR`) taken during the meeting timeframe (±5 min buffer). Each entry has `path`, `timestamp`, and `offset_secs`. This script has no video dependency — it matches screenshot timestamps against the meeting time window.
+This returns a JSON array of screenshots from `~/Pictures/` (or `$OBSIDIAN_SCREENSHOT_DIR` / `$XDG_PICTURES_DIR`) taken during the meeting timeframe (±5 min buffer). Each entry has `path`, `timestamp`, and `offset_secs`. This script has no video dependency — it matches screenshot timestamps against the meeting time window.
 
 **Step 2 — Copy and embed user screenshots**:
 For each found screenshot:
