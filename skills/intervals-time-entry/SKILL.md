@@ -1,7 +1,7 @@
 ---
 name: intervals-time-entry
 description: Fill Intervals Online time entries from daily notes with GitHub and Outlook calendar correlation. Use when asked to fill time entries, timesheets, or submit hours to Intervals. Requires chrome-devtools MCP with browser open to Intervals.
-allowed-tools: mcp__chrome-devtools__*, Bash(op read*), Bash(gh *), Bash(bash .claude/intervals-cache/*.sh *), Bash(sqlite3 *), Read, Write, Edit
+allowed-tools: mcp__chrome-devtools__*, Bash(op read*), Bash(gh *), Bash(bash *.claude/intervals-cache/*.sh *), Bash(bash *intervals-time-entry/scripts/*), Bash(sqlite3 *), Read, Write, Edit
 ---
 
 # Intervals Time Entry Automation

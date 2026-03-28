@@ -1,7 +1,7 @@
 ---
 name: obsidian-transcribe-meeting
 description: Transcribe a meeting recording from the Rodecaster SD card, Google Drive, or a local file. Creates a meeting note with summary, decisions, and action items, plus an MP3 archive. Use when the user types /transcribe-meeting or asks to transcribe a recording.
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(bash skills/obsidian-transcribe-meeting/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls /tmp/meeting*), Bash(ls /run/media/*), Bash(youtubeuploader *), Bash(ls ~/Videos/*), Bash(bc *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(bash *obsidian-transcribe-meeting/scripts/*), Bash(*bash *obsidian-transcribe-meeting/scripts/*), Bash(ffmpeg *), Bash(ffprobe *), Bash(curl *), Bash(gdown *), Bash(rclone *), Bash(op read*), Bash(whisper* *), Bash(jq *), Bash(file *), Bash(stat *), Bash(ls *), Bash(youtubeuploader *), Bash(bc *), Bash(udisksctl *), Bash(lsblk *), Bash(md5sum *), Bash(date *), Bash(grep *), Bash(cat *), Bash(echo *), Bash(mkdir *)
 ---
 
 # Transcribe Meeting

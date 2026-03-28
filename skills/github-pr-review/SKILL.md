@@ -1,7 +1,7 @@
 ---
 name: github-pr-review
 description: Review a PR and post findings as inline comments to GitHub. Shows all feedback for approval before posting.
-allowed-tools: Read, Glob, Grep, Bash(gh *), Bash(git *), Bash(bash skills/github-pr-review/scripts/*)
+allowed-tools: Read, Glob, Grep, Bash(gh *), Bash(git *), Bash(bash *github-pr-review/scripts/*)
 ---
 
 # Code Review
