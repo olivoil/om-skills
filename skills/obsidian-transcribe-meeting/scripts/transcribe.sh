@@ -100,9 +100,11 @@ VAD_SEGMENTS="[]"
 
 if [ "$VAD_MODEL" != "none" ]; then
     echo "Running VAD model: $VAD_MODEL..." >&2
-    VAD_SEGMENTS=$(python3 "$SCRIPT_DIR/vad.py" "$WAV_FILE")
+    if ! VAD_SEGMENTS=$(python3 "$SCRIPT_DIR/vad.py" "$WAV_FILE"); then
+        VAD_SEGMENTS="[]"
+    fi
 
-    if [ $? -ne 0 ] || [ -z "$VAD_SEGMENTS" ]; then
+    if [ -z "$VAD_SEGMENTS" ] || ! echo "$VAD_SEGMENTS" | jq empty 2>/dev/null; then
         echo "Warning: VAD failed, falling back to default chunking" >&2
         VAD_SEGMENTS="[]"
     fi
