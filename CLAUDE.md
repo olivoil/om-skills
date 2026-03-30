@@ -147,3 +147,4 @@ claude plugin enable om
 - (Optional) VAD for transcription — set `OBSIDIAN_VAD_MODEL` to `silero` or `pyannote`:
   - `silero`: `pip install torch torchaudio` (CPU-only, fast)
   - `pyannote`: `pip install torch pyannote.audio` + `HF_TOKEN` env var (GPU recommended, provides speaker diarization). For ROCm: `pip install torch --index-url https://download.pytorch.org/whl/rocm6.x`
+  - On Arch or other externally-managed Python systems, install in a venv and set `OBSIDIAN_VAD_VENV` to its path

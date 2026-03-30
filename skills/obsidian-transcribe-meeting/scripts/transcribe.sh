@@ -11,8 +11,9 @@
 #
 # Environment:
 #   OPENAI_API_KEY       — required for openai engine (or fetched from 1Password)
-#   TRANSCRIBE_VAD_MODEL — "none" (default), "silero", or "pyannote"
+#   OBSIDIAN_VAD_MODEL   — "none" (default), "silero", or "pyannote"
 #   HF_TOKEN             — required for pyannote model
+#   OBSIDIAN_VAD_VENV    — path to venv with torch+pyannote (e.g. ~/.local/share/pyannote-venv)
 #
 # Requires: ffmpeg, jq
 # For openai engine: curl
@@ -98,13 +99,29 @@ fi
 VAD_MODEL="${OBSIDIAN_VAD_MODEL:-none}"
 VAD_SEGMENTS="[]"
 
+# Use venv python if OBSIDIAN_VAD_VENV is set
+VAD_PYTHON="python3"
+if [ -n "$OBSIDIAN_VAD_VENV" ] && [ -x "$OBSIDIAN_VAD_VENV/bin/python3" ]; then
+    VAD_PYTHON="$OBSIDIAN_VAD_VENV/bin/python3"
+fi
+
+# Fallback chain: pyannote -> silero -> none
 if [ "$VAD_MODEL" != "none" ]; then
     echo "Running VAD model: $VAD_MODEL..." >&2
-    if ! VAD_SEGMENTS=$(python3 "$SCRIPT_DIR/vad.py" "$WAV_FILE"); then
-        VAD_SEGMENTS="[]"
-    fi
 
-    if [ -z "$VAD_SEGMENTS" ] || ! echo "$VAD_SEGMENTS" | jq empty 2>/dev/null; then
+    if VAD_SEGMENTS=$("$VAD_PYTHON" "$SCRIPT_DIR/vad.py" "$WAV_FILE") \
+       && [ -n "$VAD_SEGMENTS" ] \
+       && echo "$VAD_SEGMENTS" | jq empty 2>/dev/null \
+       && [ "$(echo "$VAD_SEGMENTS" | jq 'length')" -gt 0 ]; then
+        : # success
+    elif [ "$VAD_MODEL" = "pyannote" ]; then
+        echo "Warning: pyannote failed, trying silero..." >&2
+        OBSIDIAN_VAD_MODEL=silero VAD_SEGMENTS=$("$VAD_PYTHON" "$SCRIPT_DIR/vad.py" "$WAV_FILE") || VAD_SEGMENTS="[]"
+        if [ -z "$VAD_SEGMENTS" ] || ! echo "$VAD_SEGMENTS" | jq empty 2>/dev/null; then
+            echo "Warning: silero also failed, falling back to default chunking" >&2
+            VAD_SEGMENTS="[]"
+        fi
+    else
         echo "Warning: VAD failed, falling back to default chunking" >&2
         VAD_SEGMENTS="[]"
     fi
