@@ -11,7 +11,7 @@
 #
 # Environment:
 #   OPENAI_API_KEY       — required for openai engine (or fetched from 1Password)
-#   OBSIDIAN_VAD_MODEL   — "none" (default), "silero", or "pyannote"
+#   OBSIDIAN_VAD_MODEL   — "none" (default), "silero", "pyannote", or comma-separated chain (e.g. "pyannote,silero")
 #   HF_TOKEN             — required for pyannote model
 #   OBSIDIAN_VAD_VENV    — path to venv with torch+pyannote (e.g. ~/.local/share/pyannote-venv)
 #
@@ -96,7 +96,9 @@ if [ "$ENGINE" = "openai" ]; then
 fi
 
 # --- Run VAD if configured ---
-VAD_MODEL="${OBSIDIAN_VAD_MODEL:-none}"
+# OBSIDIAN_VAD_MODEL can be a single model or comma-separated fallback chain
+# e.g. "pyannote,silero" tries pyannote first, then silero, then gives up
+VAD_MODELS="${OBSIDIAN_VAD_MODEL:-none}"
 VAD_SEGMENTS="[]"
 
 # Use venv python if OBSIDIAN_VAD_VENV is set
@@ -105,24 +107,28 @@ if [ -n "$OBSIDIAN_VAD_VENV" ] && [ -x "$OBSIDIAN_VAD_VENV/bin/python3" ]; then
     VAD_PYTHON="$OBSIDIAN_VAD_VENV/bin/python3"
 fi
 
-# Fallback chain: pyannote -> silero -> none
-if [ "$VAD_MODEL" != "none" ]; then
-    echo "Running VAD model: $VAD_MODEL..." >&2
+if [ "$VAD_MODELS" != "none" ]; then
+    IFS=',' read -ra VAD_MODEL_LIST <<< "$VAD_MODELS"
+    VAD_SUCCESS=false
 
-    if VAD_SEGMENTS=$("$VAD_PYTHON" "$SCRIPT_DIR/vad.py" "$WAV_FILE") \
-       && [ -n "$VAD_SEGMENTS" ] \
-       && echo "$VAD_SEGMENTS" | jq empty 2>/dev/null \
-       && [ "$(echo "$VAD_SEGMENTS" | jq 'length')" -gt 0 ]; then
-        : # success
-    elif [ "$VAD_MODEL" = "pyannote" ]; then
-        echo "Warning: pyannote failed, trying silero..." >&2
-        OBSIDIAN_VAD_MODEL=silero VAD_SEGMENTS=$("$VAD_PYTHON" "$SCRIPT_DIR/vad.py" "$WAV_FILE") || VAD_SEGMENTS="[]"
-        if [ -z "$VAD_SEGMENTS" ] || ! echo "$VAD_SEGMENTS" | jq empty 2>/dev/null; then
-            echo "Warning: silero also failed, falling back to default chunking" >&2
-            VAD_SEGMENTS="[]"
+    for VAD_MODEL in "${VAD_MODEL_LIST[@]}"; do
+        VAD_MODEL=$(echo "$VAD_MODEL" | tr -d ' ')
+        [ "$VAD_MODEL" = "none" ] && continue
+
+        echo "Running VAD model: $VAD_MODEL..." >&2
+        if VAD_SEGMENTS=$(OBSIDIAN_VAD_MODEL="$VAD_MODEL" "$VAD_PYTHON" "$SCRIPT_DIR/vad.py" "$WAV_FILE") \
+           && [ -n "$VAD_SEGMENTS" ] \
+           && echo "$VAD_SEGMENTS" | jq empty 2>/dev/null \
+           && [ "$(echo "$VAD_SEGMENTS" | jq 'length')" -gt 0 ]; then
+            VAD_SUCCESS=true
+            break
+        else
+            echo "Warning: $VAD_MODEL failed" >&2
         fi
-    else
-        echo "Warning: VAD failed, falling back to default chunking" >&2
+    done
+
+    if [ "$VAD_SUCCESS" = false ]; then
+        echo "Warning: all VAD models failed, falling back to default chunking" >&2
         VAD_SEGMENTS="[]"
     fi
 fi

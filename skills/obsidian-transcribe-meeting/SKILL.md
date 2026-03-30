@@ -107,8 +107,7 @@ If the input is a local file path, use it directly.
 - `none` (default) — no VAD, uses silence trimming + fixed chunking (current behavior)
 - `silero` — Silero VAD strips non-speech segments before transcription. Fast, CPU-only. Reduces Whisper hallucination and improves chunking.
 - `pyannote` — pyannote.audio speaker diarization. Provides VAD + speaker labels so the transcript is attributed per-speaker. Requires GPU (ROCm/CUDA) and `HF_TOKEN` for HuggingFace model access.
-
-When `pyannote` is selected but fails, the script automatically falls back to `silero`, then to default chunking if silero also fails. This means setting `pyannote` gives you the best-available VAD without manual intervention.
+- `pyannote,silero` — comma-separated fallback chain. Tries pyannote first; if it fails, tries silero; if both fail, falls back to default chunking.
 
 On systems with externally-managed Python (e.g. Arch), install torch and pyannote in a venv and set `OBSIDIAN_VAD_VENV` to its path. The script will use `$OBSIDIAN_VAD_VENV/bin/python3` instead of system `python3`.
 
@@ -302,5 +301,5 @@ If any search returns results, skip creation and return the existing note path. 
 - If `ffmpeg` is not available: error with install instructions
 - If OpenAI API key is missing: check 1Password, then ask user
 - If transcription fails: report the error, suggest trying the other engine
-- If pyannote fails: automatically tries silero as fallback, then default chunking
+- If a VAD model fails: tries the next model in the comma-separated chain, then default chunking
 - If pyannote fails due to missing `HF_TOKEN`: tell user to set `HF_TOKEN` and accept model terms at huggingface.co/pyannote/speaker-diarization-3.1
