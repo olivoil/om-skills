@@ -133,6 +133,13 @@ if [ "$VAD_MODELS" != "none" ]; then
     fi
 fi
 
+# Handle pyannote's {chunks, speakers} format vs plain array (silero)
+SPEAKER_TIMELINE=""
+if echo "$VAD_SEGMENTS" | jq -e '.chunks' >/dev/null 2>&1; then
+    SPEAKER_TIMELINE=$(echo "$VAD_SEGMENTS" | jq -c '.speakers')
+    VAD_SEGMENTS=$(echo "$VAD_SEGMENTS" | jq -c '.chunks')
+fi
+
 VAD_COUNT=$(echo "$VAD_SEGMENTS" | jq 'length')
 
 # --- Transcribe ---
@@ -143,9 +150,13 @@ if [ "$VAD_COUNT" -gt 0 ]; then
     CHUNK_DIR="/tmp/whisper_chunks_$$"
     mkdir -p "$CHUNK_DIR"
 
-    # Write VAD segments to temp file so we can iterate without a subshell pipe
+    # Write VAD segments and speaker timeline to temp files
     VAD_TMPFILE="${CHUNK_DIR}/vad_segments.json"
     echo "$VAD_SEGMENTS" > "$VAD_TMPFILE"
+    SPEAKER_TMPFILE="${CHUNK_DIR}/speakers.json"
+    if [ -n "$SPEAKER_TIMELINE" ]; then
+        echo "$SPEAKER_TIMELINE" > "$SPEAKER_TMPFILE"
+    fi
 
     ALL_SEGMENTS="[]"
     IDX=0
@@ -156,9 +167,8 @@ if [ "$VAD_COUNT" -gt 0 ]; then
         SEG_START=$(echo "$SEG" | jq -r '.start')
         SEG_END=$(echo "$SEG" | jq -r '.end')
         SEG_DURATION=$(echo "$SEG_END - $SEG_START" | bc)
-        SEG_SPEAKER=$(echo "$SEG" | jq -r '.speaker // empty')
 
-        echo "  Segment $((IDX+1))/$TOTAL: ${SEG_START}s-${SEG_END}s${SEG_SPEAKER:+ ($SEG_SPEAKER)}" >&2
+        echo "  Segment $((IDX+1))/$TOTAL: ${SEG_START}s-${SEG_END}s" >&2
 
         CHUNK_FILE="${CHUNK_DIR}/vad_${IDX}.wav"
         ffmpeg -i "$WAV_FILE" -ss "$SEG_START" -t "$SEG_DURATION" -c:a pcm_s16le "$CHUNK_FILE" -y -loglevel warning >/dev/null 2>&1
@@ -180,8 +190,8 @@ if [ "$VAD_COUNT" -gt 0 ]; then
 
                 CHUNK_RESULT=$(transcribe_openai_chunk "$SUB_FILE" "$OPENAI_API_KEY")
                 ABS_OFFSET=$(echo "$SEG_START + $SUB_OFFSET" | bc)
-                ADJUSTED=$(echo "$CHUNK_RESULT" | jq --argjson offset "$ABS_OFFSET" --arg spk "$SEG_SPEAKER" '
-                    map(.start += $offset | .end += $offset | if $spk != "" then .speaker = $spk else . end)
+                ADJUSTED=$(echo "$CHUNK_RESULT" | jq --argjson offset "$ABS_OFFSET" '
+                    map(.start += $offset | .end += $offset)
                 ')
                 ALL_SEGMENTS=$(echo "$ALL_SEGMENTS" "$ADJUSTED" | jq -s '.[0] + .[1]')
 
@@ -195,9 +205,9 @@ if [ "$VAD_COUNT" -gt 0 ]; then
                 CHUNK_RESULT=$(transcribe_local_chunk "$CHUNK_FILE")
             fi
 
-            # Adjust timestamps to absolute time and add speaker label if present
-            ADJUSTED=$(echo "$CHUNK_RESULT" | jq --argjson offset "$SEG_START" --arg spk "$SEG_SPEAKER" '
-                map(.start += $offset | .end += $offset | if $spk != "" then .speaker = $spk else . end)
+            # Adjust timestamps to absolute time
+            ADJUSTED=$(echo "$CHUNK_RESULT" | jq --argjson offset "$SEG_START" '
+                map(.start += $offset | .end += $offset)
             ')
             ALL_SEGMENTS=$(echo "$ALL_SEGMENTS" "$ADJUSTED" | jq -s '.[0] + .[1]')
         fi
@@ -206,6 +216,18 @@ if [ "$VAD_COUNT" -gt 0 ]; then
     done
 
     rm -rf "$CHUNK_DIR"
+
+    # Attribute speakers from pyannote timeline to whisper segments
+    if [ -n "$SPEAKER_TIMELINE" ] && [ -f "$SPEAKER_TMPFILE" ] 2>/dev/null; then
+        echo "Attributing speakers to ${#ALL_SEGMENTS} transcript segments..." >&2
+        ALL_SEGMENTS=$(echo "$ALL_SEGMENTS" | jq --slurpfile spk "$SPEAKER_TMPFILE" '
+            [.[] | . as $seg |
+                (($seg.start + $seg.end) / 2) as $mid |
+                ($spk[0] | map(select(.start <= $mid and .end >= $mid)) | .[0].speaker // null) as $speaker |
+                if $speaker then . + {speaker: $speaker} else . end
+            ]
+        ')
+    fi
 
     echo "$ALL_SEGMENTS"
 

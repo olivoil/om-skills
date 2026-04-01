@@ -3,9 +3,11 @@
 
 Usage: python3 vad.py <audio-file>
 
-Outputs JSON speech segments to stdout:
+Outputs JSON to stdout:
   Silero:   [{"start": 0.0, "end": 5.2}, ...]
-  Pyannote: [{"start": 0.0, "end": 5.2, "speaker": "SPEAKER_00"}, ...]
+  Pyannote: {"chunks": [...], "speakers": [...]}
+    chunks:   merged speech segments for whisper (ignores speaker boundaries)
+    speakers: fine-grained speaker timeline for post-attribution
 
 Environment:
   OBSIDIAN_VAD_MODEL — "silero", "pyannote", or "none" (default: "none")
@@ -49,6 +51,11 @@ def run_silero(audio_file: str) -> list[dict]:
 def run_pyannote(audio_file: str) -> list[dict]:
     """Run pyannote speaker diarization (includes VAD)."""
     import torch
+
+    # Disable MIOpen (cuDNN) to work around ROCm + GCC 15 JIT compilation errors.
+    # GPU inference still works without it; MIOpen is only needed for training optimizations.
+    torch.backends.cudnn.enabled = False
+
     from pyannote.audio import Pipeline
 
     hf_token = os.environ.get("HF_TOKEN")
@@ -71,14 +78,20 @@ def run_pyannote(audio_file: str) -> list[dict]:
 
     pipeline = Pipeline.from_pretrained(
         "pyannote/speaker-diarization-3.1",
-        use_auth_token=hf_token,
+        token=hf_token,
     )
     pipeline.to(device)
 
-    diarization = pipeline(audio_file)
+    result = pipeline(audio_file)
+
+    # pyannote 4.x returns DiarizeOutput; extract the Annotation object
+    if hasattr(result, "speaker_diarization"):
+        annotation = result.speaker_diarization
+    else:
+        annotation = result
 
     segments = []
-    for turn, _, speaker in diarization.itertracks(yield_label=True):
+    for turn, _, speaker in annotation.itertracks(yield_label=True):
         segments.append({
             "start": round(turn.start, 3),
             "end": round(turn.end, 3),
@@ -91,26 +104,24 @@ def run_pyannote(audio_file: str) -> list[dict]:
 def merge_segments(segments: list[dict], max_gap: float = 2.0, max_duration: float = 30.0) -> list[dict]:
     """Merge adjacent segments with small gaps into larger chunks.
 
-    Groups by speaker if speaker labels are present. Caps merged segments at
-    max_duration seconds to keep Whisper chunks manageable.
+    Ignores speaker boundaries to produce fewer, larger chunks for whisper.
+    Caps merged segments at max_duration seconds.
     """
     if not segments:
         return []
 
-    has_speakers = "speaker" in segments[0]
     merged = []
-    current = dict(segments[0])
+    current = {"start": segments[0]["start"], "end": segments[0]["end"]}
 
     for seg in segments[1:]:
-        same_speaker = (not has_speakers) or (seg["speaker"] == current.get("speaker"))
         gap = seg["start"] - current["end"]
         would_be_duration = seg["end"] - current["start"]
 
-        if same_speaker and gap <= max_gap and would_be_duration <= max_duration:
+        if gap <= max_gap and would_be_duration <= max_duration:
             current["end"] = seg["end"]
         else:
             merged.append(current)
-            current = dict(seg)
+            current = {"start": seg["start"], "end": seg["end"]}
 
     merged.append(current)
     return merged
@@ -148,7 +159,19 @@ def main():
     merged = merge_segments(raw_segments)
     print(f"Merged into {len(merged)} chunks", file=sys.stderr)
 
-    json.dump(merged, sys.stdout, indent=2)
+    has_speakers = raw_segments and "speaker" in raw_segments[0]
+
+    if has_speakers:
+        # Output both chunks (for whisper) and speaker timeline (for attribution)
+        output = {
+            "chunks": merged,
+            "speakers": raw_segments,
+        }
+    else:
+        # Silero or no-speaker mode: just output chunks array (backwards compatible)
+        output = merged
+
+    json.dump(output, sys.stdout, indent=2)
     print()  # trailing newline
 
 
