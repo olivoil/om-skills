@@ -11,7 +11,7 @@
 #
 # Environment:
 #   OPENAI_API_KEY       — required for openai engine (or fetched from 1Password)
-#   OBSIDIAN_VAD_MODEL   — "none" (default), "silero", "pyannote", or comma-separated chain (e.g. "pyannote,silero")
+#   OBSIDIAN_VAD_MODEL   — "silero" (default), "none", "pyannote", or comma-separated chain (e.g. "pyannote,silero")
 #   HF_TOKEN             — required for pyannote model
 #   OBSIDIAN_VAD_VENV    — path to venv with torch+pyannote (e.g. ~/.local/share/pyannote-venv)
 #   WHISPER_PROMPT       — optional initial prompt for whisper (names, terms for spelling)
