@@ -165,13 +165,20 @@ When VAD provides speaker labels (pyannote mode), Phase 3 should use them to att
 
 ### Phase 3: Summarize & Create Meeting Note
 
-Using the transcript segments, generate:
+Using the transcript segments and the participant list from Phase 1.5, generate:
 
 1. **Title**: A concise meeting title (inferred from transcript content and any provided context)
 2. **Summary**: 2-3 paragraph overview of what was discussed
 3. **Decisions**: Key decisions made (bullet list, omit section if none)
 4. **Action Items**: Tasks assigned with `@Name` attribution where possible (checklist, omit if none)
 5. **Open Questions**: Unresolved items (bullet list, omit if none)
+
+**Action item attribution rules:**
+- Use the participant list from Phase 1.5 as the source of truth for who is in the meeting
+- Attribute based on verbal cues in the transcript: "I'll handle that", "Can you...", "{Name}, will you..."
+- When a name is mentioned right before or after a commitment, attribute to that person
+- If attribution is genuinely ambiguous (no verbal cue, no name mention), use `@(Team)` rather than guessing
+- Olivier is always a participant; attribute to him when he says "I'll..." or someone asks him directly
 
 Format the transcript with timestamps:
 ```
@@ -193,6 +200,7 @@ date: {YYYY-MM-DD}
 project: "[[Project Name]]"
 participants:
   - "[[Olivier]]"
+  - "[[{Name from Phase 1.5}]]"
 recording: "{folder}"
 audio_url: "{original-url-or-path}"
 video_file: "{screenrecording-filename}"    # only if video exists, for idempotency
@@ -225,6 +233,8 @@ tags: [meeting]
 [0:00:12] First segment text...
 [0:00:45] Next segment text...
 ```
+
+Populate `participants:` with all names gathered in Phase 1.5, formatted as wikilinks. Olivier is always included. If Phase 1.5 found no participants, use just `[[Olivier]]` and any names that become apparent from the transcript content.
 
 Frontmatter notes:
 - **omarchy+rodecaster**: set `recording: "{folder}"`, `video_file: "{filename}"`, `recording_mode: "omarchy+rodecaster"`. Set `audio_url` to the WAV path initially — Phase 4 will replace it with the Google Drive URL after upload. Set `video_url` after YouTube upload.
