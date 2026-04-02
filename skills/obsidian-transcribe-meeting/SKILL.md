@@ -93,6 +93,55 @@ If the input contains `drive.google.com`:
 
 If the input is a local file path, use it directly.
 
+### Phase 1.5: Gather Context
+
+Before transcription, gather participant names and project vocabulary to improve whisper accuracy and action item attribution. Run the three tracks below **in parallel** to minimize added time.
+
+**Track 1: Screenshots**
+
+Find screenshots taken during the meeting window:
+```bash
+bash skills/obsidian-transcribe-meeting/scripts/find-screenshots.sh "{date}" "{start_time}" "{duration_secs}"
+```
+Save the JSON result for reuse in Phase 3.5. For each screenshot found, read the image and look for:
+- Participant names visible in the Teams/Zoom/Meet UI (participant panel, name labels on video tiles)
+- Any on-screen text that reveals the meeting title or topic
+
+Collect all names found across all screenshots.
+
+**Track 2: Vault context**
+
+1. Read the daily note for the target date (`Daily Notes/{date}.md`)
+2. From the time entry lines, identify which project this recording likely belongs to (match by time proximity to the recording start time)
+3. If a project is identified, read the project page (`Projects/{project}.md`) and extract:
+   - Team member names (from wikilinks like `[[Name]]` in any section)
+   - Project-specific terminology (product names, acronyms, technical terms)
+4. Also check if participants are mentioned in the time entry line itself (e.g., "sync with Bhrugen")
+
+**Track 3: Quick first-pass**
+
+1. Extract the first 90 seconds of audio:
+   ```bash
+   ffmpeg -i "{audio-file}" -t 90 -c:a pcm_s16le -ar 16000 -ac 1 /tmp/firstpass_$$.wav -y -loglevel warning
+   ```
+2. Transcribe just that clip (no prompt, fast since it's tiny):
+   ```bash
+   bash skills/obsidian-transcribe-meeting/scripts/transcribe.sh /tmp/firstpass_$$.wav "{engine}"
+   ```
+3. Scan the resulting text for proper nouns and name-like words
+4. Clean up: `rm /tmp/firstpass_$$.wav`
+
+**Combine results**
+
+Merge and deduplicate names from all three tracks. Build the whisper prompt:
+```
+Meeting participants: Olivier, Kanish, Tara, Dinesh, Adam. Project: KHov. Topics: deployment pipelines, QA issues, container apps.
+```
+
+Store this as `WHISPER_PROMPT` for Phase 2 and keep the participant list for Phase 3.
+
+If no context was gathered from any track (no screenshots, no daily note match, no names in first-pass), proceed without a prompt. This is not an error.
+
 ### Phase 2: Transcribe
 
 1. Determine the engine: check `echo $OBSIDIAN_WHISPER_ENGINE` — defaults to `openai` if unset.
