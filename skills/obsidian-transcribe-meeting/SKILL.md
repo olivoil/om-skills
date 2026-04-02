@@ -249,11 +249,12 @@ Frontmatter notes:
 
 Applies to **all recording modes** (omarchy+rodecaster, omarchy-only, and rodecaster-only).
 
-**Step 1 — Find user screenshots taken during the meeting**:
+**Step 1 -- Reuse screenshots from Phase 1.5**:
+
+The screenshots were already discovered in Phase 1.5 Track 1. Use the same JSON result here. If Phase 1.5 was skipped (e.g., Google Drive source with no date context), run the discovery now:
 ```bash
 bash skills/obsidian-transcribe-meeting/scripts/find-screenshots.sh "{date}" "{start_time}" "{duration_secs}"
 ```
-This returns a JSON array of screenshots from `~/Pictures/` (or `$OBSIDIAN_SCREENSHOT_DIR` / `$XDG_PICTURES_DIR`) taken during the meeting timeframe (±5 min buffer). Each entry has `path`, `timestamp`, and `offset_secs`. This script has no video dependency — it matches screenshot timestamps against the meeting time window.
 
 **Step 2 — Copy and embed user screenshots**:
 For each found screenshot:
