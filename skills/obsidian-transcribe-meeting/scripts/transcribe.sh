@@ -14,6 +14,7 @@
 #   OBSIDIAN_VAD_MODEL   — "none" (default), "silero", "pyannote", or comma-separated chain (e.g. "pyannote,silero")
 #   HF_TOKEN             — required for pyannote model
 #   OBSIDIAN_VAD_VENV    — path to venv with torch+pyannote (e.g. ~/.local/share/pyannote-venv)
+#   WHISPER_PROMPT       — optional initial prompt for whisper (names, terms for spelling)
 #
 # Requires: ffmpeg, jq
 # For openai engine: curl
@@ -59,12 +60,18 @@ transcribe_openai_chunk() {
     local chunk_file="$1"
     local api_key="$2"
 
+    local prompt_args=()
+    if [ -n "$WHISPER_PROMPT" ]; then
+        prompt_args=(-F "prompt=$WHISPER_PROMPT")
+    fi
+
     curl -s -X POST "https://api.openai.com/v1/audio/transcriptions" \
         -H "Authorization: Bearer ${api_key}" \
         -F "file=@${chunk_file}" \
         -F "model=whisper-1" \
         -F "response_format=verbose_json" \
         -F "timestamp_granularities[]=segment" \
+        "${prompt_args[@]}" \
     | jq '.segments // [] | map({start, end, text})'
 }
 
@@ -72,11 +79,17 @@ transcribe_local_chunk() {
     local chunk_file="$1"
     local output_file="/tmp/whisper_output_$$"
 
+    local prompt_args=()
+    if [ -n "$WHISPER_PROMPT" ]; then
+        prompt_args=(--prompt "$WHISPER_PROMPT")
+    fi
+
     whisper-cli \
         --model /home/olivier/.local/share/pywhispercpp/models/ggml-large-v3.bin \
         --output-json \
         --output-file "$output_file" \
         --no-speech-thold 0.80 \
+        "${prompt_args[@]}" \
         --file "$chunk_file" \
         >/dev/null 2>&1
 
@@ -98,7 +111,7 @@ fi
 # --- Run VAD if configured ---
 # OBSIDIAN_VAD_MODEL can be a single model or comma-separated fallback chain
 # e.g. "pyannote,silero" tries pyannote first, then silero, then gives up
-VAD_MODELS="${OBSIDIAN_VAD_MODEL:-none}"
+VAD_MODELS="${OBSIDIAN_VAD_MODEL:-silero}"
 VAD_SEGMENTS="[]"
 
 # Use venv python if OBSIDIAN_VAD_VENV is set
