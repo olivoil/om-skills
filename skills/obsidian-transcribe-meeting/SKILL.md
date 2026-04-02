@@ -147,14 +147,15 @@ If no context was gathered from any track (no screenshots, no daily note match, 
 1. Determine the engine: check `echo $OBSIDIAN_WHISPER_ENGINE` — defaults to `openai` if unset.
 2. Run the transcription script:
    ```bash
-   bash skills/obsidian-transcribe-meeting/scripts/transcribe.sh "<audio-file>" "<engine>"
+   WHISPER_PROMPT="{prompt from Phase 1.5}" bash skills/obsidian-transcribe-meeting/scripts/transcribe.sh "<audio-file>" "<engine>"
    ```
+   If no prompt was gathered in Phase 1.5, omit the `WHISPER_PROMPT` variable.
 3. Capture the JSON output — an array of `{start, end, text}` segments.
    - With pyannote VAD: segments also include `speaker` field (e.g. `"SPEAKER_00"`)
 
 **VAD (Voice Activity Detection)** is controlled by `OBSIDIAN_VAD_MODEL`:
-- `none` (default) — no VAD, uses silence trimming + fixed chunking (current behavior)
-- `silero` — Silero VAD strips non-speech segments before transcription. Fast, CPU-only. Reduces Whisper hallucination and improves chunking.
+- `silero` (default) — Silero VAD strips non-speech segments before transcription. Fast, CPU-only. Reduces Whisper hallucination and improves chunking.
+- `none` — no VAD, uses silence trimming + fixed chunking
 - `pyannote` — pyannote.audio speaker diarization. Provides VAD + speaker labels so the transcript is attributed per-speaker. Requires GPU (ROCm/CUDA) and `HF_TOKEN` for HuggingFace model access.
 - `pyannote,silero` — comma-separated fallback chain. Tries pyannote first; if it fails, tries silero; if both fail, falls back to default chunking.
 
