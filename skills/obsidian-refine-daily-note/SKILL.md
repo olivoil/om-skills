@@ -8,6 +8,20 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(qmd *), Too
 
 Improve an Obsidian daily note by polishing prose, adding missing wikilinks to maintain a rich knowledge graph, extracting long sections into dedicated notes, and suggesting new vault entities.
 
+## Auto Mode
+
+When invoked with `--auto` (e.g., `/obsidian-refine-daily-note --auto` or `/obsidian-refine-daily-note 2026-02-14 --auto`), the skill runs fully unattended with no confirmation prompts. This is designed for scheduled/cron execution via `claude -p`.
+
+**In auto mode:**
+- **Apply without asking**: Phases 0-3 (setup, entity discovery, slack scan + summary, prose improvements, wikilinks), Phase 4d (freeze "Done today"), and Phase 6 (project recent activity updates)
+- **Skip entirely**: Phase 4 (extract long sections), Phase 4b (suggest new entities), Phase 4c (suggest todo completions), Phase 4e (move inline todos) — these require human judgment
+- **Phase 1b (Slack)**: Run the scan and write the Slack Activity summary (Phase 1c) directly. Skip the "add time entries?" prompt (step 8-9) — just note uncovered gaps in the Slack Activity section for the user to review later
+- **Phase 5**: Skip the confirmation step — apply prose and wikilink changes directly
+- **Phase 6**: Apply project recent activity updates directly without confirmation
+- **Commit changes**: After all edits are applied, create a git commit with message `vault backup: refine daily note {date}`
+
+**In interactive mode (default):** Behavior is unchanged — all confirmation prompts remain.
+
 ## Workflow
 
 ### Phase 0: Setup
@@ -280,4 +294,4 @@ After all daily note changes are applied, update each referenced project's note 
 - **Offer to create unknown entities** — ask before creating new vault pages
 - **Author's voice** — improve clarity without rewriting style
 - **Idempotent** — running twice shouldn't cause issues (don't re-extract already-extracted sections, don't double-link, don't re-freeze already-frozen Done today sections)
-- **Show before applying** — always preview changes for user approval
+- **Show before applying** — always preview changes for user approval (unless `--auto` mode)
