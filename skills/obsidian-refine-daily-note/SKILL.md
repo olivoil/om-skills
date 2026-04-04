@@ -1,6 +1,6 @@
 ---
 name: obsidian-refine-daily-note
-description: Improve Obsidian daily notes — polish writing, add missing wikilinks, extract long sections into dedicated notes, suggest new vault entities, and summarize Slack activity. Use when the user types /refine or asks to clean up daily notes.
+description: Improve Obsidian daily notes — polish writing, add missing wikilinks, extract long sections into dedicated notes, suggest new vault entities, summarize Slack activity, and enrich person notes from meetings. Use when the user types /refine or asks to clean up daily notes.
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash(obsidian *), Bash(qmd *), ToolSearch
 ---
 
@@ -13,11 +13,12 @@ Improve an Obsidian daily note by polishing prose, adding missing wikilinks to m
 When invoked with `--auto` (e.g., `/obsidian-refine-daily-note --auto` or `/obsidian-refine-daily-note 2026-02-14 --auto`), the skill runs fully unattended with no confirmation prompts. This is designed for scheduled/cron execution via `claude -p`.
 
 **In auto mode:**
-- **Apply without asking**: Phases 0-3 (setup, entity discovery, slack scan + summary, prose improvements, wikilinks), Phase 4d (freeze "Done today"), and Phase 6 (project recent activity updates)
+- **Apply without asking**: Phases 0-3 (setup, entity discovery, slack scan + summary, prose improvements, wikilinks), Phase 4d (freeze "Done today"), Phase 6 (project recent activity updates), and Phase 7 (enrich person notes — update existing, create new)
 - **Skip entirely**: Phase 4 (extract long sections), Phase 4b (suggest new entities), Phase 4c (suggest todo completions), Phase 4e (move inline todos) — these require human judgment
 - **Phase 1b (Slack)**: Run the scan and write the Slack Activity summary (Phase 1c) directly. Skip the "add time entries?" prompt (step 8-9) — just note uncovered gaps in the Slack Activity section for the user to review later
 - **Phase 5**: Skip the confirmation step — apply prose and wikilink changes directly
 - **Phase 6**: Apply project recent activity updates directly without confirmation
+- **Phase 7**: Update existing person notes directly; create new person files without asking
 - **Commit changes**: After all edits are applied, create a git commit with message `vault backup: refine daily note {date}`
 
 **In interactive mode (default):** Behavior is unchanged — all confirmation prompts remain.
@@ -285,6 +286,49 @@ After all daily note changes are applied, update each referenced project's note 
 3. **Check idempotency**: If an entry for today's date already exists, update it rather than duplicating.
 4. **Present all proposed project note updates** for approval before applying.
 5. **Apply changes** if approved.
+
+### Phase 7: Enrich Person Notes
+
+After project updates, enrich person notes for anyone who appeared in today's meetings.
+
+1. **Collect today's meeting notes**: Find all meeting notes linked from the daily note's time entries (wikilinks like `[[2026-04-02 Technomic Weekly Status Meeting]]`). Read each meeting note's frontmatter to extract the `participants:` list.
+
+2. **For each participant** (deduplicated across all meetings):
+   a. **Match to existing person file**: Check if a file exists in `$VAULT/Persons/` matching the wikilink target. Use the entity catalog from Phase 1 (which already loaded `Persons/` files and aliases).
+   b. **If person file exists**: Read it and update the `## Recent Interactions` section:
+      - Add an entry for each meeting they attended today: `- **{date}**: [[{Meeting Title}]] — {1-line summary from meeting note}`
+      - Skip if an entry for this meeting already exists (idempotent)
+      - Prune entries older than 30 days to keep the section manageable
+      - If the person's `**Projects:**` field doesn't include the meeting's project, add it
+   c. **If no person file exists**: Queue for creation (see step 3)
+
+3. **Create new person files**: For each participant without a matching `Persons/` file:
+   - Infer what you can from the meeting context: role (if mentioned in transcript), projects (from meeting frontmatter), company/org (EXSQ vs client)
+   - Create the file:
+     ```markdown
+     ---
+     aliases:
+       - {first name}
+     ---
+     # {Full Name}
+
+     **Role:** {if known, otherwise omit}
+     **Projects:** [[{project from meeting}]]
+
+     ## Recent Interactions
+     - **{date}**: [[{Meeting Title}]] — {1-line summary}
+
+     ## Notes
+     ```
+   - In auto mode, create without asking. In interactive mode, present the list for approval first.
+
+4. **Update aliases if needed**: If a person was referred to by a name not in their aliases (e.g., transcript says "Bhrugen" but aliases only has "Bhru"), add the new alias.
+
+**Rules:**
+- Only process participants from meeting notes linked in today's daily note. Don't scan all meetings in the vault.
+- Use full names from `Persons/` filenames for wikilinks, not the short names from meeting frontmatter.
+- The `## Recent Interactions` section is the enrichment target. Don't modify other sections of person notes.
+- Idempotent: running twice should not create duplicate entries or files.
 
 ## Key Rules
 
