@@ -97,7 +97,7 @@ If the input is a local file path, use it directly.
 
 Before transcription, gather participant names and project vocabulary to improve whisper accuracy and action item attribution. Run the three tracks below **in parallel** to minimize added time.
 
-**Track 1: Screenshots**
+**Track 1: Screenshots (authoritative for participants)**
 
 Find screenshots taken during the meeting window:
 ```bash
@@ -107,16 +107,17 @@ Save the JSON result for reuse in Phase 3.5. For each screenshot found, read the
 - Participant names visible in the Teams/Zoom/Meet UI (participant panel, name labels on video tiles)
 - Any on-screen text that reveals the meeting title or topic
 
-Collect all names found across all screenshots.
+Collect all names found across all screenshots. **These are the authoritative participants.** If screenshots show who is in the meeting, that list takes priority over all other sources. Do not add names from project pages or other indirect sources that contradict or dilute what the screenshots show.
 
-**Track 2: Vault context**
+**Track 2: Vault context (vocabulary only, not participants)**
 
 1. Read the daily note for the target date (`Daily Notes/{date}.md`)
 2. From the time entry lines, identify which project this recording likely belongs to (match by time proximity to the recording start time)
 3. If a project is identified, read the project page (`Projects/{project}.md`) and extract:
-   - Team member names (from wikilinks like `[[Name]]` in any section)
    - Project-specific terminology (product names, acronyms, technical terms)
-4. Also check if participants are mentioned in the time entry line itself (e.g., "sync with Bhrugen")
+4. Also check if participants are mentioned in the time entry line itself (e.g., "sync with Bhrugen"). Names from time entry lines can be added to the participant list since they are specific to this meeting.
+
+**Important:** Do NOT pull team member names from project pages to use as participants. A project page lists everyone on the team, not who attended this specific meeting. Using project-level names causes misattribution (e.g., listing a client in an internal standup).
 
 **Track 3: Quick first-pass**
 
@@ -133,7 +134,14 @@ Collect all names found across all screenshots.
 
 **Combine results**
 
-Merge and deduplicate names from all three tracks. Build the whisper prompt:
+Participant list priority (highest to lowest):
+1. **Screenshots** showing meeting UI with participant names (authoritative)
+2. **Time entry line** names (e.g., "sync with Bhrugen" means Bhrugen is a participant)
+3. **First-pass transcript** names spoken in the audio (supplementary)
+
+Do NOT add names from project pages to the participant list. Project pages provide vocabulary for the whisper prompt only.
+
+Build the whisper prompt:
 ```
 Meeting participants: Olivier, Kanish, Tara, Dinesh, Adam. Project: KHov. Topics: deployment pipelines, QA issues, container apps.
 ```
